@@ -4,7 +4,8 @@
 // The app is this repository's app/ folder: plain static files, no build step, no network
 // request. It paints an original multi-panel cover from the user's own photos and procedural
 // Leonida scenes on a Canvas 2D pipeline, lettering included, and exports PNG or JPG at
-// 1080 x 1080, 1080 x 1350 or 1920 x 1080.
+// 1080 x 1080, 1080 x 1350 or 1920 x 1080. Photos are framed around the detected face so no
+// cut ever slices a head; the shipped samples carry measured subject boxes.
 //
 // This program is only the hand-in. It stages app/ and screenshots/ into the output directory,
 // writes dossier.json with the kit's buildDossier, and prints the gate-facing totals so a run
@@ -21,7 +22,7 @@ import { buildDossier } from './vendor/makefun-app.ts';
 const ENTRY = {
   competition: 'gta6-cover-art-01',
   app: 'Vice Prism Cover Studio',
-  version: '1.0.0',
+  version: '2.0.0',
   runtime: 'Canvas 2D, ES modules, zero dependencies',
 } as const;
 

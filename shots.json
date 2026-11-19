@@ -6,6 +6,8 @@
     "layout": "classic6",
     "size": "1920x1080",
     "export": "PNG, scaled to 1280x720",
+    "caption": "SUNSET HEIST · A Leonida Story",
+    "note": "Boulevard portrait painted at the hero cut, pier portrait at the right wing, painted coupe, neon avenue, coast highway and sunset skyline around them.",
     "w": 1280,
     "h": 720
   },
@@ -13,7 +15,8 @@
     "name": "2-studio-editor.jpg",
     "kind": "studio with a photo loaded",
     "query": "?demo=cover",
-    "photo": "samples/boulevard.jpg uploaded through the file picker",
+    "photo": "samples/boulevard.jpg uploaded through the file picker into panel 2",
+    "note": "Live painterly preview, six layout previews, three post sizes, six grades, five FX sliders, caption fields and the one-click EXPORT PNG button.",
     "w": 1280,
     "h": 800
   },
@@ -24,6 +27,8 @@
     "layout": "mosaic6",
     "size": "1080x1350",
     "export": "PNG, scaled to 1024x1280",
+    "caption": "NEON HEIRESS · After Hours in Leonida",
+    "note": "All six cuts populated: painted boulevard and pier portraits, mirrored neon towers, wet-street light trails and a lit marina.",
     "w": 1024,
     "h": 1280
   },
@@ -34,6 +39,8 @@
     "layout": "triptych3",
     "size": "1080x1080",
     "export": "PNG at native 1080x1080",
+    "caption": "COASTAL CLASSIC · Turquoise Season",
+    "note": "Boulevard and pier portraits cleanly framed either side of a sunlit turquoise coast, art-deco facades and palms.",
     "w": 1080,
     "h": 1080
   }

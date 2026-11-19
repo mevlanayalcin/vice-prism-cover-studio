@@ -15,11 +15,11 @@ export const sizeOf = (state) => SIZES.find((s) => s.id === state.size) ?? SIZES
 export const SOURCE_IDS = ['sunset-city', 'sunset-cruise', 'coast-highway', 'neon-skyline', 'neon-strip', 'coastal-day', 'boulevard', 'pier'];
 
 const DEFAULT_SOURCES = {
-  classic6: ['sunset-city', 'sunset-cruise', 'coast-highway', 'neon-skyline', 'pier', 'boulevard'],
-  mosaic6: ['neon-strip', 'sunset-city', 'sunset-cruise', 'coast-highway', 'boulevard', 'neon-skyline'],
+  classic6: ['sunset-city', 'boulevard', 'pier', 'coast-highway', 'neon-strip', 'sunset-cruise'],
+  mosaic6: ['boulevard', 'neon-strip', 'neon-skyline', 'pier', 'coast-highway', 'sunset-city'],
   diagonal4: ['sunset-city', 'neon-skyline', 'sunset-cruise', 'pier'],
-  triptych3: ['coastal-day', 'coast-highway', 'pier'],
-  'hero-strips': ['sunset-city', 'sunset-cruise', 'coast-highway', 'neon-skyline'],
+  triptych3: ['boulevard', 'coastal-day', 'pier'],
+  'hero-strips': ['sunset-city', 'sunset-cruise', 'coast-highway', 'neon-strip'],
   minimal: ['sunset-city', 'pier'],
 };
 
@@ -41,6 +41,7 @@ const panelConfig = (layout, index, source) => {
     focusY: focal.y,
     rotate: ROTATIONS[index % ROTATIONS.length],
     flip: index === 2,
+    manualFocus: false,
     gradeOverride: 'global',
   };
 };
@@ -107,6 +108,7 @@ export function assignSource(state, sourceId, { all = true, index = state.active
     const panel = state.panels[i];
     if (!panel) continue;
     panel.source = sourceId;
+    panel.manualFocus = false;
     const focal = layout.panels[i]?.focal ?? { zoom: 1.1, x: 0.5, y: 0.5 };
     panel.zoom = focal.zoom;
     panel.focusX = focal.x;
@@ -122,6 +124,7 @@ export function assignPack(state, sourceIds) {
   const layout = layoutById(state.layout);
   state.panels.forEach((panel, i) => {
     panel.source = ids[i % ids.length];
+    panel.manualFocus = false;
     const focal = layout.panels[i]?.focal;
     if (focal) {
       panel.zoom = focal.zoom;
@@ -140,6 +143,7 @@ export function mixSources(state, sourceIds) {
   state.mixOffset = offset;
   state.panels.forEach((panel, i) => {
     panel.source = ids[(i + offset) % ids.length];
+    panel.manualFocus = false;
     const focal = layoutById(state.layout).panels[i]?.focal;
     if (focal) {
       panel.zoom = focal.zoom;
@@ -161,6 +165,7 @@ export function resetPanel(state, index = state.activePanel) {
   }
   panel.rotate = ROTATIONS[index % ROTATIONS.length];
   panel.flip = index === 2;
+  panel.manualFocus = false;
   panel.gradeOverride = 'global';
   return state;
 }
@@ -173,7 +178,8 @@ export const DEMOS = {
     grade: 'vice-sunset',
     fontStyle: 'block',
     textPosition: 'auto',
-    caption: { title: 'VICE PRISM', subtitle: 'A Sunset State Story', tagline: 'LEONIDA · EST. 2026', badge: 'SUNSET EDITION' },
+    sources: ['sunset-city', 'boulevard', 'pier', 'coast-highway', 'neon-strip', 'sunset-cruise'],
+    caption: { title: 'SUNSET HEIST', subtitle: 'A Leonida Story', tagline: 'VICE PRISM · LEONIDA', badge: 'SUNSET EDITION' },
   },
   studio: {
     size: 'landscape',
@@ -181,7 +187,8 @@ export const DEMOS = {
     grade: 'vice-sunset',
     fontStyle: 'block',
     textPosition: 'auto',
-    caption: { title: 'VICE PRISM', subtitle: 'A Sunset State Story', tagline: 'LEONIDA · EST. 2026', badge: 'SUNSET EDITION' },
+    sources: ['sunset-city', 'boulevard', 'pier', 'coast-highway', 'neon-strip', 'sunset-cruise'],
+    caption: { title: 'SUNSET HEIST', subtitle: 'A Leonida Story', tagline: 'VICE PRISM · LEONIDA', badge: 'SUNSET EDITION' },
   },
   neon: {
     size: 'portrait',
@@ -189,6 +196,7 @@ export const DEMOS = {
     grade: 'neon-midnight',
     fontStyle: 'narrow',
     textPosition: 'auto',
+    sources: ['boulevard', 'neon-strip', 'neon-skyline', 'pier', 'coast-highway', 'sunset-city'],
     caption: { title: 'NEON HEIRESS', subtitle: 'After Hours in Leonida', tagline: 'OCEAN DRIVE · 02:14 AM', badge: 'MIDNIGHT CUT' },
   },
   coast: {
@@ -197,6 +205,7 @@ export const DEMOS = {
     grade: 'coastal-day',
     fontStyle: 'serif',
     textPosition: 'auto',
+    sources: ['boulevard', 'coastal-day', 'pier'],
     caption: { title: 'COASTAL CLASSIC', subtitle: 'Turquoise Season', tagline: 'PALM COAST · HIGH TIDE', badge: 'CORAL EDITION' },
   },
 };
@@ -207,7 +216,11 @@ export function applyDemo(state, name) {
   if (!demo) return state;
   state.size = demo.size;
   setLayout(state, demo.layout);
-  state.panels = panelsFor(demo.layout);
+  state.panels = panelsFor(demo.layout).map((panel, i) => ({
+    ...panel,
+    source: demo.sources?.[i] ?? panel.source,
+    manualFocus: false,
+  }));
   state.grade = demo.grade;
   state.fontStyle = demo.fontStyle;
   state.textPosition = demo.textPosition;

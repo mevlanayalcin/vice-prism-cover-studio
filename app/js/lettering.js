@@ -98,12 +98,16 @@ function drawScrim(ctx, geo, title) {
   const { width: w, height: h } = geo;
   const lower = title.y + title.h / 2 > h * 0.44;
   if (lower) {
-    const g = ctx.createLinearGradient(0, Math.max(0, title.y - h * 0.12), 0, h);
+    // Band the scrim to the lettering well. It used to wash the whole lower half of the
+    // poster, which flattened the two feet of every six-panel cover.
+    const top = Math.max(0, title.y - h * 0.07);
+    const bottom = Math.min(h, title.y + title.h + h * 0.03);
+    const g = ctx.createLinearGradient(0, top, 0, bottom);
     g.addColorStop(0, 'rgba(7,2,12,0)');
-    g.addColorStop(0.55, 'rgba(7,2,12,0.2)');
-    g.addColorStop(1, 'rgba(6,1,10,0.52)');
+    g.addColorStop(0.45, 'rgba(7,2,12,0.32)');
+    g.addColorStop(1, 'rgba(6,1,10,0.24)');
     ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect(0, top, w, bottom - top);
   } else {
     const cx = title.x + title.w * 0.5;
     const cy = title.y + title.h * 0.5;
@@ -126,8 +130,8 @@ function drawScrim(ctx, geo, title) {
   const cx = title.x + title.w * 0.34;
   const cy = title.y + title.h * 0.48;
   const pool = ctx.createRadialGradient(cx, cy, Math.min(title.w, title.h) * 0.08, cx, cy, Math.max(title.w, title.h) * 0.62);
-  pool.addColorStop(0, 'rgba(5,1,10,0.34)');
-  pool.addColorStop(0.58, 'rgba(5,1,10,0.15)');
+  pool.addColorStop(0, 'rgba(5,1,10,0.28)');
+  pool.addColorStop(0.58, 'rgba(5,1,10,0.12)');
   pool.addColorStop(1, 'rgba(5,1,10,0)');
   ctx.fillStyle = pool;
   ctx.fillRect(0, 0, w, h);
@@ -179,7 +183,10 @@ function drawTitle(ctx, geo, state, title, grade) {
   const words = titleWords(state.caption.title);
   const pad = Math.max(18, geo.height * 0.045);
   const maxW = title.w;
-  const maxH = title.h;
+  // Keep a shelf under the title for the subtitle plaque, so stacked type never collides.
+  const hasSubtitle = !!(state.caption.subtitle || '').trim();
+  const reserve = hasSubtitle ? Math.min(title.h * 0.22, geo.height * 0.052) : 0;
+  const maxH = Math.max(geo.height * 0.06, title.h - reserve);
 
   const measure = (text, size) => {
     ctx.save();
@@ -305,15 +312,17 @@ function drawSubtitle(ctx, geo, state, title, titleInfo, grade) {
   ctx.restore();
 
   const drawSize = size * scale;
-  const plaqueH = drawSize * 2.05;
-  const plaqueW = textW * scale + drawSize * 2.4;
+  const plaqueH = drawSize * 1.66;
+  const plaqueW = textW * scale + drawSize * 2.1;
   const autoSub = geo.zones.subtitle;
   let x = state.textPosition === 'auto' ? autoSub.x : title.x;
-  let y = state.textPosition === 'auto' ? Math.min(autoSub.y, titleInfo.blockBottom + h * 0.032) : titleInfo.blockBottom + h * 0.02;
+  let y = state.textPosition === 'auto'
+    ? Math.min(autoSub.y, titleInfo.blockBottom + h * 0.012)
+    : titleInfo.blockBottom + h * 0.02;
   if (title.align === 'center') x = title.x + (title.w - plaqueW) / 2;
   if (x + plaqueW > w - w * 0.03) x = w - w * 0.03 - plaqueW;
   x = Math.max(w * 0.03, x);
-  y = Math.min(y, h * 0.925 - plaqueH);
+  y = Math.max(h * 0.02, Math.min(y, h * 0.9 - plaqueH));
   const slant = plaqueH * 0.34;
 
   ctx.save();
@@ -498,38 +507,61 @@ function star(ctx, x, y, r, color) {
 
 function drawFooter(ctx, geo, grade) {
   const { width: w, height: h } = geo;
-  const size = clamp(h * 0.0105, 7, 18);
-  const y = h * 0.962;
+  const size = clamp(h * 0.0112, 7, 19);
+  const y = h * 0.964;
+  const barW = w * 0.085;
+  const barH = size * 1.75;
+  const barX = w * 0.9 - barW;
+  const barY = y - size * 2.7;
+  const left = w * 0.052;
+  const maxText = barX - left - w * 0.022;
+
   ctx.save();
+
+  // legal line: measured, then condensed and finally shortened so it can never run into the
+  // barcode block. This is a geometric guarantee, not a hope about a font's advance widths.
+  const legal = 'AN ORIGINAL VICE PRISM PRODUCTION  ·  LEONIDA COVER STUDIO  ·  NOT AFFILIATED WITH ANY GAME PUBLISHER';
+  let textSize = size;
+  let text = legal;
+  const setFont = (px, tracking) => {
+    ctx.font = `600 ${px}px ${TEXT_FONT}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${px * tracking}px`;
+  };
+  setFont(textSize, 0.1);
+  while (ctx.measureText(text).width > maxText && textSize > size * 0.72) {
+    textSize *= 0.96;
+    setFont(textSize, 0.06);
+  }
+  if (ctx.measureText(text).width > maxText) {
+    while (text.length > 12 && ctx.measureText(`${text.slice(0, -2)}…`).width > maxText) text = text.slice(0, -2);
+    text = `${text.slice(0, -1)}…`;
+  }
+
   ctx.strokeStyle = 'rgba(255,244,218,0.16)';
   ctx.lineWidth = Math.max(1, h * 0.001);
   ctx.beginPath();
-  ctx.moveTo(w * 0.052, y - size * 1.7);
-  ctx.lineTo(w * 0.948, y - size * 1.7);
+  ctx.moveTo(left, y - textSize * 1.9);
+  ctx.lineTo(barX - w * 0.02, y - textSize * 1.9);
   ctx.stroke();
 
-  ctx.fillStyle = 'rgba(255,246,228,0.6)';
-  ctx.font = `600 ${size}px ${TEXT_FONT}`;
-  if ('letterSpacing' in ctx) ctx.letterSpacing = `${size * 0.1}px`;
-  ctx.fillText('AN ORIGINAL VICE PRISM PRODUCTION  ·  LEONIDA COVER STUDIO  ·  NOT AFFILIATED WITH ANY GAME PUBLISHER', w * 0.052, y);
+  ctx.fillStyle = 'rgba(255,246,228,0.66)';
+  setFont(textSize, 0.08);
+  ctx.fillText(text, left, y);
 
-  // original barcode block
-  const bx = w * 0.845;
-  const by = y - size * 2.35;
-  const bw = w * 0.1;
-  const bh = size * 1.9;
-  ctx.fillStyle = 'rgba(255,246,228,0.7)';
-  let cursor = bx;
+  // original barcode block, clear of the legal line by construction
+  ctx.fillStyle = 'rgba(255,246,228,0.72)';
+  let cursor = barX;
   let seed = 41;
-  while (cursor < bx + bw * 0.62) {
+  while (cursor < barX + barW * 0.7) {
     seed = (seed * 16807) % 2147483647;
-    const barW = Math.max(1, (seed % 4) * size * 0.14);
-    ctx.fillRect(cursor, by, barW, bh);
-    cursor += barW + Math.max(1, ((seed >> 3) % 3) * size * 0.15);
+    const barWidth = Math.max(1, (seed % 4) * (barH * 0.09));
+    ctx.fillRect(cursor, barY, barWidth, barH);
+    cursor += barWidth + Math.max(1, ((seed >> 3) % 3) * (barH * 0.07));
   }
-  ctx.font = `700 ${size * 0.9}px ${TEXT_FONT}`;
-  ctx.fillStyle = 'rgba(255,246,228,0.55)';
-  ctx.fillText('VP-26-001', bx, y + size * 0.05);
+  ctx.font = `700 ${Math.max(6, size * 0.8)}px ${TEXT_FONT}`;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${size * 0.04}px`;
+  ctx.fillStyle = 'rgba(255,246,228,0.52)';
+  ctx.fillText('VP-26-001', barX, y + size * 0.1);
 
   // tiny corner registration marks
   const m = Math.min(w, h) * 0.018;

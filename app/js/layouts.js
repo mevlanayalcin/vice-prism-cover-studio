@@ -2,6 +2,11 @@
 // slanted quadrilaterals in unit space: the renderer scales them to the export size and leaves
 // the gaps between them to become the thick jet-black gutters. Nothing here is traced from,
 // or drawn after, any existing game cover: the slants, gutter rhythm and text wells are ours.
+//
+// The focal values are the artist's starting crops. A cut that holds a photo of a person is
+// re-planned at render time around the detected face, so these numbers matter most for the
+// painted procedural scenes: each one aims at a lit tower, a sun, a car or a facade rather than
+// an empty sky.
 
 const pt = (x, y) => ({ x, y });
 
@@ -26,20 +31,20 @@ export const LAYOUTS = [
     id: 'classic6',
     name: 'Classic 6-Panel',
     short: 'Mosaic',
-    note: 'Three cuts over a lettering band over two feet.',
+    note: 'A tall hero, two wings, a lettering band and two feet.',
     panels: [
-      { points: poly([0, 0], [0.265, 0], [0.281, 0.408], [0.006, 0.418]), focal: { zoom: 1.2, x: 0.46, y: 0.44 } },
-      { points: poly([0.296, 0], [0.704, 0], [0.717, 0.402], [0.31, 0.412]), focal: { zoom: 1.0, x: 0.5, y: 0.58 } },
-      { points: poly([0.73, 0], [1, 0], [1, 0.408], [0.742, 0.4]), focal: { zoom: 1.28, x: 0.5, y: 0.42 } },
-      { points: poly([0, 0.418], [0.995, 0.416], [1, 0.712], [0.002, 0.72]), focal: { zoom: 1.05, x: 0.5, y: 0.55 } },
-      { points: poly([0, 0.742], [0.49, 0.736], [0.5, 1], [0.004, 1]), focal: { zoom: 1.34, x: 0.46, y: 0.6 } },
-      { points: poly([0.516, 0.736], [1, 0.73], [1, 1], [0.526, 1]), focal: { zoom: 1.2, x: 0.56, y: 0.56 } },
+      { points: poly([0, 0], [0.262, 0], [0.278, 0.472], [0.004, 0.48]), focal: { zoom: 1.55, x: 0.44, y: 0.56 } },
+      { points: poly([0.292, 0], [0.708, 0], [0.72, 0.472], [0.304, 0.48]), focal: { zoom: 1.16, x: 0.5, y: 0.42 } },
+      { points: poly([0.735, 0], [1, 0], [1, 0.47], [0.747, 0.462]), focal: { zoom: 1.08, x: 0.54, y: 0.4 } },
+      { points: poly([0, 0.486], [1, 0.484], [1, 0.744], [0.002, 0.75]), focal: { zoom: 1.1, x: 0.58, y: 0.5 } },
+      { points: poly([0, 0.766], [0.49, 0.76], [0.5, 1], [0.004, 1]), focal: { zoom: 1.8, x: 0.55, y: 0.35 } },
+      { points: poly([0.516, 0.76], [1, 0.754], [1, 1], [0.526, 1]), focal: { zoom: 1.1, x: 0.48, y: 0.5 } },
     ],
     zones: zones(
-      { x: 0.05, y: 0.424, w: 0.8, h: 0.278, align: 'center' },
-      { x: 0.055, y: 0.06, align: 'left' },
-      { x: 0.058, y: 0.836, align: 'left' },
-      { x: 0.855, y: 0.795, size: 0.145, align: 'right' },
+      { x: 0.05, y: 0.5, w: 0.8, h: 0.234, align: 'center' },
+      { x: 0.055, y: 0.052, align: 'left' },
+      { x: 0.058, y: 0.862, align: 'left' },
+      { x: 0.855, y: 0.79, size: 0.145, align: 'right' },
       [{ x: 0.925, y: 0.985, scale: 0.62, flip: true }],
     ),
   },
@@ -49,12 +54,12 @@ export const LAYOUTS = [
     short: 'Mosaic',
     note: 'A tall tower cut and five neon shards.',
     panels: [
-      { points: poly([0, 0], [0.395, 0], [0.412, 1], [0, 1]), focal: { zoom: 1.2, x: 0.46, y: 0.46 } },
-      { points: poly([0.432, 0], [0.7, 0], [0.712, 0.315], [0.446, 0.322]), focal: { zoom: 1.34, x: 0.52, y: 0.36 } },
-      { points: poly([0.732, 0], [1, 0], [1, 0.305], [0.742, 0.315]), focal: { zoom: 1.24, x: 0.45, y: 0.5 } },
-      { points: poly([0.462, 0.352], [0.73, 0.342], [0.746, 0.66], [0.478, 0.672]), focal: { zoom: 1.4, x: 0.56, y: 0.52 } },
-      { points: poly([0.496, 0.702], [0.762, 0.692], [0.776, 1], [0.512, 1]), focal: { zoom: 1.16, x: 0.42, y: 0.58 } },
-      { points: poly([0.792, 0.69], [1, 0.682], [1, 1], [0.806, 1]), focal: { zoom: 1.3, x: 0.5, y: 0.6 } },
+      { points: poly([0, 0], [0.4, 0], [0.415, 1], [0, 1]), focal: { zoom: 1.24, x: 0.5, y: 0.44 } },
+      { points: poly([0.43, 0], [0.7, 0], [0.712, 0.318], [0.444, 0.326]), focal: { zoom: 1.8, x: 0.7, y: 0.3 } },
+      { points: poly([0.727, 0], [1, 0], [1, 0.31], [0.737, 0.318]), focal: { zoom: 1.7, x: 0.68, y: 0.7 } },
+      { points: poly([0.444, 0.35], [0.72, 0.34], [0.734, 0.662], [0.458, 0.674]), focal: { zoom: 1.16, x: 0.46, y: 0.42 } },
+      { points: poly([0.474, 0.698], [0.744, 0.688], [0.758, 1], [0.49, 1]), focal: { zoom: 1.7, x: 0.33, y: 0.62 } },
+      { points: poly([0.776, 0.685], [1, 0.677], [1, 1], [0.79, 1]), focal: { zoom: 1.55, x: 0.43, y: 0.58 } },
     ],
     zones: zones(
       { x: 0.05, y: 0.5, w: 0.78, h: 0.34, align: 'left' },
@@ -70,10 +75,10 @@ export const LAYOUTS = [
     short: 'Action',
     note: 'Four cuts slashed by a rising diagonal.',
     panels: [
-      { points: poly([0, 0], [0.635, 0], [0.38, 0.52], [0, 0.52]), focal: { zoom: 1.16, x: 0.45, y: 0.46 } },
-      { points: poly([0.657, 0], [1, 0], [1, 0.52], [0.402, 0.52]), focal: { zoom: 1.28, x: 0.56, y: 0.42 } },
-      { points: poly([0, 0.546], [0.4, 0.546], [0.672, 1], [0, 1]), focal: { zoom: 1.3, x: 0.4, y: 0.6 } },
-      { points: poly([0.424, 0.546], [1, 0.546], [1, 1], [0.694, 1]), focal: { zoom: 1.12, x: 0.57, y: 0.58 } },
+      { points: poly([0, 0], [0.635, 0], [0.38, 0.52], [0, 0.52]), focal: { zoom: 1.7, x: 0.48, y: 0.54 } },
+      { points: poly([0.657, 0], [1, 0], [1, 0.52], [0.402, 0.52]), focal: { zoom: 1.6, x: 0.12, y: 0.75 } },
+      { points: poly([0, 0.546], [0.4, 0.546], [0.672, 1], [0, 1]), focal: { zoom: 1.3, x: 0.5, y: 0.55 } },
+      { points: poly([0.424, 0.546], [1, 0.546], [1, 1], [0.694, 1]), focal: { zoom: 1.1, x: 0.58, y: 0.56 } },
     ],
     zones: zones(
       { x: 0.052, y: 0.5, w: 0.66, h: 0.33, align: 'left' },
@@ -89,9 +94,9 @@ export const LAYOUTS = [
     short: 'Triptych',
     note: 'Three leaning towers of a postcard.',
     panels: [
-      { points: poly([0, 0], [0.312, 0], [0.335, 1], [0, 1]), focal: { zoom: 1.24, x: 0.44, y: 0.48 } },
-      { points: poly([0.348, 0], [0.664, 0], [0.678, 1], [0.371, 1]), focal: { zoom: 1.08, x: 0.53, y: 0.52 } },
-      { points: poly([0.692, 0], [1, 0], [1, 1], [0.706, 1]), focal: { zoom: 1.32, x: 0.5, y: 0.44 } },
+      { points: poly([0, 0], [0.312, 0], [0.335, 1], [0, 1]), focal: { zoom: 1.02, x: 0.46, y: 0.4 } },
+      { points: poly([0.348, 0], [0.664, 0], [0.678, 1], [0.371, 1]), focal: { zoom: 1.4, x: 0.4, y: 0.68 } },
+      { points: poly([0.692, 0], [1, 0], [1, 1], [0.706, 1]), focal: { zoom: 1.08, x: 0.52, y: 0.44 } },
     ],
     zones: zones(
       { x: 0.05, y: 0.522, w: 0.64, h: 0.33, align: 'left' },
@@ -107,10 +112,10 @@ export const LAYOUTS = [
     short: 'Feature',
     note: 'A widescreen hero over three tilted strips.',
     panels: [
-      { points: poly([0, 0], [1, 0], [1, 0.672], [0, 0.692]), focal: { zoom: 1.04, x: 0.5, y: 0.5 } },
-      { points: poly([0, 0.714], [0.352, 0.7], [0.342, 1], [0, 1]), focal: { zoom: 1.36, x: 0.48, y: 0.55 } },
-      { points: poly([0.368, 0.698], [0.674, 0.694], [0.668, 1], [0.358, 1]), focal: { zoom: 1.28, x: 0.52, y: 0.58 } },
-      { points: poly([0.69, 0.692], [1, 0.69], [1, 1], [0.684, 1]), focal: { zoom: 1.18, x: 0.46, y: 0.52 } },
+      { points: poly([0, 0], [1, 0], [1, 0.672], [0, 0.692]), focal: { zoom: 1.5, x: 0.53, y: 0.54 } },
+      { points: poly([0, 0.714], [0.352, 0.7], [0.342, 1], [0, 1]), focal: { zoom: 1.1, x: 0.58, y: 0.58 } },
+      { points: poly([0.368, 0.698], [0.674, 0.694], [0.668, 1], [0.358, 1]), focal: { zoom: 1.5, x: 0.2, y: 0.45 } },
+      { points: poly([0.69, 0.692], [1, 0.69], [1, 1], [0.684, 1]), focal: { zoom: 1.6, x: 0.7, y: 0.32 } },
     ],
     zones: zones(
       { x: 0.052, y: 0.335, w: 0.7, h: 0.315, align: 'left' },
@@ -126,8 +131,8 @@ export const LAYOUTS = [
     short: 'Minimal',
     note: 'A single key frame with one small inset.',
     panels: [
-      { points: poly([0.03, 0.045], [0.986, 0.02], [0.972, 0.962], [0.02, 0.982]), focal: { zoom: 1.02, x: 0.5, y: 0.52 } },
-      { points: poly([0.7, 0.7], [0.925, 0.69], [0.935, 0.905], [0.708, 0.918]), focal: { zoom: 1.38, x: 0.5, y: 0.45 } },
+      { points: poly([0.03, 0.045], [0.986, 0.02], [0.972, 0.962], [0.02, 0.982]), focal: { zoom: 1.7, x: 0.48, y: 0.58 } },
+      { points: poly([0.7, 0.7], [0.925, 0.69], [0.935, 0.905], [0.708, 0.918]), focal: { zoom: 1.06, x: 0.5, y: 0.34 } },
     ],
     zones: zones(
       { x: 0.06, y: 0.285, w: 0.64, h: 0.34, align: 'left' },

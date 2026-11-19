@@ -446,26 +446,56 @@ function neonSkyline() {
     glowLine(ctx, sx, sy + sh * 0.45, sx + sw * 2.4, sy + sh * 0.45, color, sw * 0.6, 28);
   }
 
-  // water and reflections
+  // water and reflections: the whole downtown mirrored in long neon columns
   const waterTop = baseY;
   const water = ctx.createLinearGradient(0, waterTop, 0, H);
-  water.addColorStop(0, '#170834');
-  water.addColorStop(0.4, '#0b0424');
-  water.addColorStop(1, '#030112');
+  water.addColorStop(0, '#241048');
+  water.addColorStop(0.4, '#120730');
+  water.addColorStop(1, '#050218');
   ctx.fillStyle = water;
   ctx.fillRect(0, waterTop, W, H - waterTop);
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, waterTop, W, H - waterTop);
   ctx.clip();
-  for (let i = 0; i < 260; i++) {
-    const yy = waterTop + rand() * (H - waterTop);
-    const column = rand();
-    const color = column > 0.72 ? '255,80,186' : column > 0.35 ? '70,220,255' : '255,206,130';
-    ctx.fillStyle = `rgba(${color},${0.07 + rand() * 0.4})`;
-    ctx.fillRect(rand() * W, yy, 8 + rand() * 90, 1 + rand() * 2.4);
+  ctx.globalCompositeOperation = 'screen';
+  for (const t of towers) {
+    const cx = t.x + t.bw * 0.5;
+    const g = ctx.createLinearGradient(cx, waterTop, cx, H);
+    const warm = rand() > 0.5;
+    g.addColorStop(0, warm ? 'rgba(255,88,200,0.3)' : 'rgba(72,226,255,0.28)');
+    g.addColorStop(0.5, warm ? 'rgba(255,88,200,0.1)' : 'rgba(72,226,255,0.09)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - t.bw * 0.34, waterTop, t.bw * 0.68, H - waterTop);
   }
+  for (let i = 0; i < 520; i++) {
+    const t = rand();
+    const yy = waterTop + t * t * (H - waterTop);
+    const column = rand();
+    const color = column > 0.68 ? '255,86,196' : column > 0.3 ? '92,232,255' : '255,214,150';
+    ctx.fillStyle = `rgba(${color},${0.1 + t * 0.5})`;
+    ctx.fillRect(rand() * W, yy, 10 + t * 120, 1 + t * 3.2);
+  }
+  // a bright marina: pontoon, moored boat and its reflection
+  ctx.fillStyle = 'rgba(22,8,40,0.95)';
+  ctx.fillRect(W * 0.06, waterTop + H * 0.12, W * 0.26, H * 0.032);
+  ctx.fillStyle = 'rgba(255,200,140,0.7)';
+  for (let i = 0; i < 7; i++) ctx.fillRect(W * 0.08 + i * W * 0.034, waterTop + H * 0.105, W * 0.008, H * 0.012);
+  ctx.beginPath();
+  ctx.moveTo(W * 0.14, waterTop + H * 0.1);
+  ctx.quadraticCurveTo(W * 0.2, waterTop + H * 0.075, W * 0.27, waterTop + H * 0.1);
+  ctx.lineTo(W * 0.25, waterTop + H * 0.13);
+  ctx.lineTo(W * 0.16, waterTop + H * 0.13);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(14,5,28,0.96)';
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,74,150,0.95)';
+  ctx.fillRect(W * 0.163, waterTop + H * 0.094, W * 0.012, W * 0.006);
   ctx.restore();
+  // a fine lit promenade edge
+  ctx.fillStyle = 'rgba(255,182,120,0.5)';
+  ctx.fillRect(0, waterTop, W, 2);
 
   // foreground palms
   palm(ctx, W * 0.06, H * 1.04, H * 0.78, false, 'rgba(7,1,13,0.98)');
@@ -473,113 +503,211 @@ function neonSkyline() {
   return c;
 }
 
-/** An original low-slung coupe, drawn as a silhouette: long hood, fastback roof, fat arches. */
+/**
+ * An original retro-exotic coupe, painted rather than outlined: layered body gradients, a
+ * chrome shoulder, a sunset reflection in the canopy, spoked rims, lit lenses and a ground
+ * reflection. It is the car the sunset scenes are built around, so it must read as a poster
+ * subject at thumbnail size.
+ */
 function muscleCar(ctx, cx, groundY, width) {
   const w = width;
   const y = (v) => groundY + v * w;
   const x = (v) => cx + v * w;
-  const path = (points) => {
+  const path = (points, close = true) => {
     ctx.beginPath();
     points.forEach(([px, py], i) => (i === 0 ? ctx.moveTo(x(px), y(py)) : ctx.lineTo(x(px), y(py))));
-    ctx.closePath();
+    if (close) ctx.closePath();
   };
   ctx.save();
-  // contact shadow on the asphalt
+
+  // contact shadow and a wet-asphalt reflection under the car
   ctx.save();
-  ctx.translate(cx, groundY + w * 0.02);
-  ctx.scale(1, 0.16);
-  const shadow = ctx.createRadialGradient(0, 0, w * 0.05, 0, 0, w * 0.6);
-  shadow.addColorStop(0, 'rgba(4,1,8,0.82)');
-  shadow.addColorStop(0.6, 'rgba(8,2,14,0.36)');
+  ctx.translate(cx, groundY + w * 0.012);
+  ctx.scale(1, 0.15);
+  const shadow = ctx.createRadialGradient(0, 0, w * 0.02, 0, 0, w * 0.7);
+  shadow.addColorStop(0, 'rgba(3,1,7,0.9)');
+  shadow.addColorStop(0.55, 'rgba(8,2,14,0.42)');
   shadow.addColorStop(1, 'rgba(8,2,14,0)');
   ctx.fillStyle = shadow;
   ctx.beginPath();
-  ctx.arc(0, 0, w * 0.6, 0, Math.PI * 2);
+  ctx.arc(0, 0, w * 0.7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  const mirror = ctx.createLinearGradient(0, groundY, 0, groundY + w * 0.16);
+  mirror.addColorStop(0, 'rgba(255,120,120,0.55)');
+  mirror.addColorStop(1, 'rgba(255,80,120,0)');
+  ctx.fillStyle = mirror;
+  ctx.beginPath();
+  ctx.ellipse(cx, groundY + w * 0.05, w * 0.42, w * 0.075, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
+  // the body: a long nose, a low fastback canopy, a cut tail
   const body = [
-    [-0.49, -0.075], [-0.515, -0.17], [-0.5, -0.275], [-0.455, -0.325], [-0.325, -0.355],
-    [-0.15, -0.525], [-0.02, -0.552], [0.1, -0.54], [0.215, -0.382], [0.385, -0.348],
-    [0.482, -0.332], [0.523, -0.262], [0.512, -0.178], [0.5, -0.075],
-    [0.42, -0.088], [0.39, -0.14], [0.3, -0.225], [0.2, -0.15], [0.185, -0.088],
-    [-0.16, -0.088], [-0.185, -0.155], [-0.29, -0.238], [-0.395, -0.148], [-0.42, -0.088],
+    [-0.545, -0.075], [-0.55, -0.155], [-0.535, -0.245], [-0.5, -0.315], [-0.43, -0.352],
+    [-0.27, -0.372], [-0.135, -0.47], [0.01, -0.512], [0.145, -0.5], [0.235, -0.4],
+    [0.33, -0.36], [0.455, -0.348], [0.525, -0.31], [0.552, -0.235], [0.548, -0.15],
+    [0.535, -0.072], [0.455, -0.086], [0.42, -0.14], [0.33, -0.24], [0.24, -0.16],
+    [0.225, -0.088], [-0.17, -0.088], [-0.19, -0.168], [-0.285, -0.262], [-0.39, -0.156], [-0.425, -0.086],
   ];
   path(body);
-  const paint = ctx.createLinearGradient(0, y(-0.55), 0, y(-0.06));
-  paint.addColorStop(0, '#241026');
-  paint.addColorStop(0.42, '#120718');
-  paint.addColorStop(1, '#08030e');
+  const paint = ctx.createLinearGradient(x(-0.2), y(-0.55), x(0.1), y(-0.06));
+  paint.addColorStop(0, '#4a0f2a');
+  paint.addColorStop(0.18, '#a51f45');
+  paint.addColorStop(0.45, '#6d1230');
+  paint.addColorStop(0.72, '#2a0718');
+  paint.addColorStop(1, '#0a0208');
   ctx.fillStyle = paint;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,176,134,0.5)';
-  ctx.lineWidth = w * 0.007;
+  ctx.strokeStyle = 'rgba(255,168,124,0.42)';
+  ctx.lineWidth = w * 0.005;
   ctx.stroke();
 
-  // chrome spear along the flank and a lit hardtop line
-  ctx.strokeStyle = 'rgba(255,214,170,0.5)';
-  ctx.lineWidth = w * 0.008;
+  // shoulder light sweeping from the nose to the tail
+  ctx.strokeStyle = 'rgba(255,226,186,0.62)';
+  ctx.lineWidth = w * 0.009;
   ctx.beginPath();
-  ctx.moveTo(x(-0.44), y(-0.3));
-  ctx.quadraticCurveTo(x(0.02), y(-0.34), x(0.47), y(-0.29));
+  ctx.moveTo(x(-0.505), y(-0.33));
+  ctx.bezierCurveTo(x(-0.18), y(-0.395), x(0.12), y(-0.39), x(0.5), y(-0.33));
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,120,150,0.24)';
+  ctx.strokeStyle = 'rgba(255,90,140,0.26)';
   ctx.lineWidth = w * 0.005;
   ctx.beginPath();
-  ctx.moveTo(x(-0.12), y(-0.5));
-  ctx.quadraticCurveTo(x(-0.02), y(-0.56), x(0.09), y(-0.53));
+  ctx.moveTo(x(-0.5), y(-0.175));
+  ctx.bezierCurveTo(x(-0.12), y(-0.22), x(0.2), y(-0.215), x(0.52), y(-0.185));
   ctx.stroke();
 
-  // glass, catching the sunset
-  path([[-0.125, -0.505], [-0.012, -0.527], [0.085, -0.512], [0.175, -0.402], [-0.075, -0.398]]);
-  const glass = ctx.createLinearGradient(x(-0.1), y(-0.52), x(0.16), y(-0.39));
-  glass.addColorStop(0, 'rgba(255,196,132,0.6)');
-  glass.addColorStop(0.5, 'rgba(255,104,96,0.3)');
-  glass.addColorStop(1, 'rgba(60,20,60,0.5)');
+  // canopy glass with a sunset reflection and a chrome frame
+  path([[-0.115, -0.468], [0.005, -0.502], [0.135, -0.49], [0.2, -0.408], [-0.05, -0.404]]);
+  const glass = ctx.createLinearGradient(x(-0.1), y(-0.51), x(0.18), y(-0.39));
+  glass.addColorStop(0, 'rgba(255,208,150,0.85)');
+  glass.addColorStop(0.35, 'rgba(255,122,120,0.55)');
+  glass.addColorStop(0.7, 'rgba(96,30,90,0.55)');
+  glass.addColorStop(1, 'rgba(20,8,30,0.8)');
   ctx.fillStyle = glass;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,232,196,0.55)';
+  ctx.lineWidth = w * 0.006;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.lineWidth = w * 0.009;
+  ctx.beginPath();
+  ctx.moveTo(x(-0.085), y(-0.472));
+  ctx.lineTo(x(0.11), y(-0.466));
+  ctx.stroke();
+  // the hardtop pillar
+  ctx.strokeStyle = 'rgba(22,6,20,0.85)';
+  ctx.lineWidth = w * 0.012;
+  ctx.beginPath();
+  ctx.moveTo(x(0.135), y(-0.492));
+  ctx.lineTo(x(0.2), y(-0.408));
+  ctx.stroke();
+
+  // door seam, handle and a low side intake
+  ctx.strokeStyle = 'rgba(10,3,10,0.6)';
+  ctx.lineWidth = w * 0.004;
+  ctx.beginPath();
+  ctx.moveTo(x(0.01), y(-0.4));
+  ctx.lineTo(x(0.012), y(-0.13));
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,214,164,0.5)';
+  ctx.fillRect(x(0.03), y(-0.318), w * 0.045, w * 0.011);
+  ctx.fillStyle = 'rgba(12,3,12,0.72)';
+  ctx.beginPath();
+  ctx.moveTo(x(-0.235), y(-0.235));
+  ctx.lineTo(x(0.115), y(-0.245));
+  ctx.lineTo(x(0.1), y(-0.19));
+  ctx.lineTo(x(-0.22), y(-0.185));
+  ctx.closePath();
   ctx.fill();
 
   // wheel wells, tyres and chrome rims
-  for (const wx of [-0.29, 0.3]) {
+  for (const wx of [-0.29, 0.335]) {
     ctx.beginPath();
-    ctx.arc(x(wx), y(-0.115), w * 0.118, Math.PI, Math.PI * 2);
+    ctx.arc(x(wx), y(-0.1), w * 0.128, Math.PI, Math.PI * 2);
     ctx.fillStyle = '#050109';
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(x(wx), y(-0.115), w * 0.115, 0, Math.PI * 2);
+    ctx.arc(x(wx), y(-0.1), w * 0.122, 0, Math.PI * 2);
     ctx.fillStyle = '#0a0410';
     ctx.fill();
+    ctx.strokeStyle = 'rgba(255,150,150,0.22)';
+    ctx.lineWidth = w * 0.006;
+    ctx.stroke();
     ctx.beginPath();
-    ctx.arc(x(wx), y(-0.115), w * 0.062, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,196,150,0.34)';
+    ctx.arc(x(wx), y(-0.1), w * 0.068, 0, Math.PI * 2);
+    const rim = ctx.createRadialGradient(x(wx) - w * 0.02, y(-0.13), w * 0.005, x(wx), y(-0.1), w * 0.07);
+    rim.addColorStop(0, '#fff4d6');
+    rim.addColorStop(0.55, '#d9a86e');
+    rim.addColorStop(1, '#5a3a24');
+    ctx.fillStyle = rim;
     ctx.fill();
+    ctx.fillStyle = 'rgba(16,6,16,0.9)';
+    for (let s = 0; s < 6; s++) {
+      const a = (s / 6) * Math.PI * 2 + 0.3;
+      ctx.beginPath();
+      ctx.moveTo(x(wx) + Math.cos(a) * w * 0.018, y(-0.1) + Math.sin(a) * w * 0.018);
+      ctx.lineTo(x(wx) + Math.cos(a + 0.22) * w * 0.06, y(-0.1) + Math.sin(a + 0.22) * w * 0.06);
+      ctx.lineTo(x(wx) + Math.cos(a + 0.34) * w * 0.06, y(-0.1) + Math.sin(a + 0.34) * w * 0.06);
+      ctx.closePath();
+      ctx.fill();
+    }
     ctx.beginPath();
-    ctx.arc(x(wx), y(-0.115), w * 0.036, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(30,12,34,0.9)';
+    ctx.arc(x(wx), y(-0.1), w * 0.018, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffe9bc';
     ctx.fill();
   }
 
-  // full-width tail light bar and a warm headlight
+  // rear light bar, front lens and their glow
   ctx.save();
-  ctx.shadowColor = 'rgba(255,46,92,0.95)';
-  ctx.shadowBlur = w * 0.05;
-  ctx.fillStyle = '#ff3358';
-  ctx.fillRect(x(-0.512), y(-0.268), w * 0.026, w * 0.055);
+  ctx.shadowColor = 'rgba(255,40,86,0.95)';
+  ctx.shadowBlur = w * 0.075;
+  const tail = ctx.createLinearGradient(x(-0.556), y(-0.3), x(-0.51), y(-0.2));
+  tail.addColorStop(0, '#ff5d74');
+  tail.addColorStop(1, '#c1103c');
+  ctx.fillStyle = tail;
+  ctx.fillRect(x(-0.552), y(-0.275), w * 0.032, w * 0.085);
   ctx.restore();
   ctx.save();
-  ctx.shadowColor = 'rgba(255,214,140,0.95)';
-  ctx.shadowBlur = w * 0.045;
-  ctx.fillStyle = '#ffe6ae';
-  ctx.fillRect(x(0.5), y(-0.256), w * 0.022, w * 0.042);
+  ctx.shadowColor = 'rgba(255,226,160,0.95)';
+  ctx.shadowBlur = w * 0.07;
+  ctx.fillStyle = '#fff3cd';
+  ctx.beginPath();
+  ctx.ellipse(x(0.53), y(-0.27), w * 0.022, w * 0.021, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  // headlight beams raking into the sunset haze
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const beam = ctx.createLinearGradient(x(0.54), y(-0.27), x(0.95), y(-0.05));
+  beam.addColorStop(0, 'rgba(255,238,190,0.5)');
+  beam.addColorStop(1, 'rgba(255,200,120,0)');
+  ctx.fillStyle = beam;
+  ctx.beginPath();
+  ctx.moveTo(x(0.54), y(-0.29));
+  ctx.lineTo(x(0.98), y(-0.3));
+  ctx.lineTo(x(0.98), y(0.0));
+  ctx.lineTo(x(0.545), y(-0.24));
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 
-  // twin exhaust tips and a rear plate
-  ctx.fillStyle = 'rgba(255,206,150,0.5)';
-  ctx.fillRect(x(-0.53), y(-0.075), w * 0.05, w * 0.012);
-  ctx.fillStyle = 'rgba(255,244,224,0.32)';
-  ctx.fillRect(x(-0.5), y(-0.2), w * 0.045, w * 0.03);
+  // mirrors, exhaust tips and a plate that carries the studio's own mark
+  ctx.fillStyle = 'rgba(255,214,170,0.55)';
+  ctx.beginPath();
+  ctx.ellipse(x(0.16), y(-0.42), w * 0.026, w * 0.014, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,206,150,0.55)';
+  ctx.fillRect(x(-0.56), y(-0.07), w * 0.06, w * 0.013);
+  ctx.fillStyle = 'rgba(255,244,224,0.4)';
+  ctx.fillRect(x(-0.52), y(-0.175), w * 0.052, w * 0.036);
+  ctx.fillStyle = 'rgba(30,10,26,0.9)';
+  ctx.fillRect(x(-0.516), y(-0.169), w * 0.044, w * 0.024);
   ctx.restore();
 }
+
 
 function sunsetCruise() {
   const { c, ctx } = canvas2d();
@@ -894,25 +1022,58 @@ function neonStrip() {
     }
   }
 
-  // the wet street, mirroring every tube
+  // the wet street, carrying a long mirror of every tube
   const street = ctx.createLinearGradient(0, horizon, 0, H);
-  street.addColorStop(0, '#2a1034');
-  street.addColorStop(0.35, '#170a22');
-  street.addColorStop(1, '#080411');
+  street.addColorStop(0, '#3a1748');
+  street.addColorStop(0.35, '#1e0c2e');
+  street.addColorStop(1, '#0a0516');
   ctx.fillStyle = street;
   ctx.fillRect(0, horizon, W, H - horizon);
-  for (let i = 0; i < 260; i++) {
+
+  // vertical reflection columns under each lit frontage, on the wet tarmac
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (const b of blocks) {
+    const cx = b.x + b.w * 0.5;
+    const g = ctx.createLinearGradient(cx - b.w * 0.2, horizon, cx + b.w * 0.2, H);
+    const warm = rand() > 0.5;
+    g.addColorStop(0, warm ? 'rgba(255,96,196,0.34)' : 'rgba(84,226,255,0.3)');
+    g.addColorStop(0.45, warm ? 'rgba(255,96,196,0.12)' : 'rgba(84,226,255,0.1)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - b.w * 0.28, horizon, b.w * 0.56, H - horizon);
+  }
+  ctx.restore();
+
+  for (let i = 0; i < 460; i++) {
     const t = rand();
     const yy = horizon + t * t * (H - horizon);
     const color = rand();
-    const pick = color > 0.66 ? '255,70,190' : color > 0.36 ? '80,230,255' : '255,208,130';
-    ctx.fillStyle = `rgba(${pick},${0.06 + t * 0.42})`;
-    const ww = 6 + t * 90;
-    ctx.fillRect(rand() * W, yy, ww, 2 + t * 5);
+    const pick = color > 0.62 ? '255,86,196' : color > 0.32 ? '96,232,255' : '255,214,144';
+    ctx.fillStyle = `rgba(${pick},${0.1 + t * 0.52})`;
+    const ww = 8 + t * 120;
+    ctx.fillRect(rand() * W, yy, ww, 2 + t * 6);
   }
+  // a mirror-bright lane running to the vanishing point
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const lane = ctx.createLinearGradient(0, horizon, 0, H);
+  lane.addColorStop(0, 'rgba(255,206,150,0.28)');
+  lane.addColorStop(0.5, 'rgba(255,150,120,0.1)');
+  lane.addColorStop(1, 'rgba(255,140,110,0)');
+  ctx.fillStyle = lane;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.47, horizon);
+  ctx.lineTo(W * 0.53, horizon);
+  ctx.lineTo(W * 0.74, H);
+  ctx.lineTo(W * 0.32, H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
   // kerb line and lane dashes
   ctx.save();
-  ctx.strokeStyle = 'rgba(255,232,186,0.5)';
+  ctx.strokeStyle = 'rgba(255,236,198,0.62)';
   ctx.lineWidth = 6;
   ctx.setLineDash([34, 44]);
   ctx.beginPath();
@@ -920,20 +1081,51 @@ function neonStrip() {
   ctx.lineTo(W * 0.5, H);
   ctx.stroke();
   ctx.restore();
-  ctx.fillStyle = 'rgba(255,120,190,0.5)';
-  ctx.fillRect(0, horizon + 2, W, 3);
+  ctx.fillStyle = 'rgba(255,120,190,0.6)';
+  ctx.fillRect(0, horizon + 2, W, 4);
 
-  // foreground palms, black against the tubes
+  // two cars with light trails: one near, one far, both original shapes
+  for (const [cx, cy, s, tail] of [[W * 0.33, H * 0.86, 1, '255,86,120'], [W * 0.71, H * 0.71, 0.52, '255,60,110']]) {
+    const pw = W * 0.1 * s;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.shadowColor = `rgba(${tail},0.9)`;
+    ctx.shadowBlur = pw * 0.5;
+    ctx.fillStyle = 'rgba(9,2,14,0.96)';
+    ctx.beginPath();
+    ctx.moveTo(-pw * 0.5, 0);
+    ctx.quadraticCurveTo(-pw * 0.42, -pw * 0.34, -pw * 0.1, -pw * 0.4);
+    ctx.quadraticCurveTo(pw * 0.1, -pw * 0.44, pw * 0.42, -pw * 0.28);
+    ctx.quadraticCurveTo(pw * 0.5, -pw * 0.1, pw * 0.5, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = `rgba(${tail},0.95)`;
+    ctx.fillRect(-pw * 0.44, -pw * 0.16, pw * 0.12, pw * 0.07);
+    ctx.fillRect(pw * 0.32, -pw * 0.16, pw * 0.1, pw * 0.07);
+    ctx.restore();
+    // a long smear of tail light on the asphalt
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    const smear = ctx.createLinearGradient(cx, cy, cx, cy + pw * 1.6);
+    smear.addColorStop(0, `rgba(${tail},0.4)`);
+    smear.addColorStop(1, `rgba(${tail},0)`);
+    ctx.fillStyle = smear;
+    ctx.fillRect(cx - pw * 0.42, cy, pw * 0.84, pw * 1.6);
+    ctx.restore();
+  }
+
+  // foreground palms, lit from below by the tubes
   palm(ctx, W * 0.05, H * 1.03, H * 0.94, false, 'rgba(6,1,12,0.99)');
   palm(ctx, W * 0.96, H * 1.05, H * 0.8, true, 'rgba(7,1,13,0.98)');
+  palm(ctx, W * 0.2, H * 1.04, H * 0.62, false, 'rgba(10,2,18,0.94)');
 
   // a soft halation over the whole strip
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   const halo = ctx.createLinearGradient(0, horizon - H * 0.3, 0, H);
-  halo.addColorStop(0, 'rgba(255,60,170,0.14)');
-  halo.addColorStop(0.45, 'rgba(80,220,255,0.1)');
-  halo.addColorStop(1, 'rgba(255,120,60,0.06)');
+  halo.addColorStop(0, 'rgba(255,60,170,0.2)');
+  halo.addColorStop(0.45, 'rgba(80,220,255,0.14)');
+  halo.addColorStop(1, 'rgba(255,120,60,0.08)');
   ctx.fillStyle = halo;
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
@@ -957,6 +1149,158 @@ const LABELS = {
   'neon-strip': 'Neon Strip',
   'coastal-day': 'Coastal Day',
 };
+
+/**
+ * Face boxes for the two shipped model-made photos, found with a detector at build time and
+ * stored as plain numbers so the crop planner never has to guess. `x`/`y` are the box centre in
+ * normalised image space; `w`/`h` are its size. They are metadata, not pixels: no other file.
+ */
+export const PHOTO_SUBJECTS = {
+  boulevard: { x: 0.571, y: 0.197, w: 0.192, h: 0.2 },
+  pier: { x: 0.4215, y: 0.236, w: 0.215, h: 0.264 },
+};
+
+/**
+ * Find the subject of an arbitrary upload: a skin-toned region high in the frame is treated as
+ * a face, and the crop planner is handed its centre and size. A photo with no clear skin region
+ * falls back to a saliency centroid, so the default crop is never a blindly centred one.
+ */
+export function detectSubject(image) {
+  const N = 64;
+  const { c, ctx } = canvas2d(N, N);
+  ctx.drawImage(image, 0, 0, N, N);
+  let pixels;
+  try {
+    pixels = ctx.getImageData(0, 0, N, N).data;
+  } catch {
+    return null;
+  }
+  const mask = new Uint8Array(N * N);
+  for (let py = 0; py < N; py++) {
+    for (let px = 0; px < N; px++) {
+      const i = (py * N + px) * 4;
+      const r = pixels[i];
+      const g = pixels[i + 1];
+      const b = pixels[i + 2];
+      const l = r * 0.299 + g * 0.587 + b * 0.114;
+      if (l < 55 || l > 238) continue;
+      if (r < 84 || r - g < 14 || r - b < 24 || g < b * 0.82) continue;
+      if (r - g > 110) continue;
+      mask[py * N + px] = 1;
+    }
+  }
+
+  // Connected components, then pick the most face-like one: compact, in the upper frame,
+  // and small enough to be a head rather than a sunlit wall or a forearm.
+  const seen = new Uint8Array(N * N);
+  let best = null;
+  const stack = new Int32Array(N * N);
+  for (let start = 0; start < mask.length; start++) {
+    if (!mask[start] || seen[start]) continue;
+    let top = 0;
+    stack[top++] = start;
+    seen[start] = 1;
+    let count = 0;
+    let minX = N;
+    let maxX = 0;
+    let minY = N;
+    let maxY = 0;
+    const cells = [];
+    while (top) {
+      const p = stack[--top];
+      const x = p % N;
+      const y = (p / N) | 0;
+      count++;
+      cells.push(p);
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
+          const q = ny * N + nx;
+          if (mask[q] && !seen[q]) {
+            seen[q] = 1;
+            stack[top++] = q;
+          }
+        }
+      }
+    }
+    if (count < N * N * 0.006) continue;
+    let w = maxX - minX + 1;
+    let h = maxY - minY + 1;
+    if (w * h > N * N * 0.4 || minY === 0) continue;
+    let cx = (minX + maxX) / 2;
+    let cy = (minY + maxY) / 2;
+    if (h > N * 0.3) {
+      // A head with a neck and chest: take the top band of the blob as the face.
+      const band = Math.max(3, Math.round(h * 0.42));
+      let bMinX = N;
+      let bMaxX = 0;
+      let bMaxY = minY;
+      let bCount = 0;
+      for (const p of cells) {
+        const y = (p / N) | 0;
+        if (y > minY + band) continue;
+        const x = p % N;
+        bCount++;
+        if (x < bMinX) bMinX = x;
+        if (x > bMaxX) bMaxX = x;
+        if (y > bMaxY) bMaxY = y;
+      }
+      if (bCount > 4) {
+        w = bMaxX - bMinX + 1;
+        h = bMaxY - minY + 1;
+        cx = (bMinX + bMaxX) / 2;
+        cy = (minY + bMaxY) / 2;
+      }
+    }
+    const compact = w / Math.max(1, h);
+    if (compact < 0.45 || compact > 1.9) continue;
+    // Prefer a compact head in the upper half of the frame, not a wide sunlit wall.
+    const density = count / (Math.max(1, w * h));
+    const areaPenalty = (w * h) / (N * N);
+    const score = density * 1.2 + (1 - cy / N) * 4.6 + Math.min(1, 5 / compact) * 0.4 - areaPenalty * 2;
+    if (!best || score > best.score) {
+      best = {
+        x: Math.min(1 - 0.08, Math.max(0.08, cx / N)),
+        y: Math.min(1 - 0.1, Math.max(0.1, cy / N)),
+        w: Math.min(0.3, Math.max(0.14, w / N)),
+        h: Math.min(0.3, Math.max(0.16, h / N)),
+        score,
+      };
+    }
+  }
+  if (best) return best;
+  // Skin-weighted edge centroid in the upper frame: the strongest warm detail is the head,
+  // even when a sunset makes the whole frame pass a naive skin test.
+  let ex = 0;
+  let ey = 0;
+  let ew = 0;
+  const limit = Math.floor(N * 0.72);
+  for (let py = 1; py < limit; py++) {
+    for (let px = 1; px < N - 1; px++) {
+      const i = (py * N + px) * 4;
+      const l = pixels[i] * 0.3 + pixels[i + 1] * 0.59 + pixels[i + 2] * 0.11;
+      const lr = pixels[i + 4] * 0.3 + pixels[i + 5] * 0.59 + pixels[i + 6] * 0.11;
+      const ld = pixels[i - N * 4] * 0.3 + pixels[i - N * 4 + 1] * 0.59 + pixels[i - N * 4 + 2] * 0.11;
+      const e = Math.abs(l - lr) + Math.abs(l - ld);
+      if (e < 24) continue;
+      const warm = mask[py * N + px] ? 2.6 : 0.12;
+      const upper = Math.max(0, 1 - py / (N * 0.62));
+      const wgt = e * warm * upper;
+      ex += px * wgt;
+      ey += py * wgt;
+      ew += wgt;
+    }
+  }
+  if (!ew) return null;
+  return { x: Math.min(0.86, Math.max(0.14, ex / ew / N)), y: Math.min(0.7, Math.max(0.14, ey / ew / N)), w: 0.24, h: 0.28 };
+}
+
 
 /**
  * Build the procedural gallery once. Each entry is a drawable canvas with a stable id and version.

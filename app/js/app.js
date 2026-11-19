@@ -18,7 +18,7 @@ import {
   SIZES,
   sizeOf,
 } from './editor-state.js';
-import { buildProceduralSamples } from './samples.js';
+import { buildProceduralSamples, detectSubject, PHOTO_SUBJECTS } from './samples.js';
 import { renderPoster } from './canvas-renderer.js';
 import { exportCover, FORMATS, formatById } from './exporter.js';
 
@@ -73,8 +73,8 @@ function loadImage(src) {
 async function loadStarterPhotos() {
   const base = new URL('../samples/', import.meta.url);
   const [boulevard, pier] = await Promise.all([loadImage(new URL('boulevard.jpg', base).href), loadImage(new URL('pier.jpg', base).href)]);
-  assets.set('boulevard', { id: 'boulevard', label: 'Boulevard', image: boulevard, version: 1 });
-  assets.set('pier', { id: 'pier', label: 'Pier at Dusk', image: pier, version: 1 });
+  assets.set('boulevard', { id: 'boulevard', label: 'Boulevard', image: boulevard, version: 1, subject: PHOTO_SUBJECTS.boulevard });
+  assets.set('pier', { id: 'pier', label: 'Pier at Dusk', image: pier, version: 1, subject: PHOTO_SUBJECTS.pier });
 }
 
 /** Wait for the shipped display faces before the first paint, so canvas type never reflows. */
@@ -633,6 +633,7 @@ overlay.addEventListener('pointermove', (event) => {
   const scale = Math.max(0.2, panel.zoom ?? 1);
   panel.focusX = clampFocus(panel.focusX - dx / (geo.box.w * scale));
   panel.focusY = clampFocus(panel.focusY - dy / (geo.box.h * scale));
+  panel.manualFocus = true;
   drag.x = event.clientX;
   drag.y = event.clientY;
   schedule('draft');
@@ -660,6 +661,7 @@ overlay.addEventListener(
     event.preventDefault();
     const factor = Math.exp(-event.deltaY * 0.0012);
     cfg.zoom = Math.min(2.6, Math.max(1, cfg.zoom * factor));
+    cfg.manualFocus = true;
     $('zoom-range').value = cfg.zoom;
     $('zoom-out').textContent = `${cfg.zoom.toFixed(2)}×`;
     syncPanel();
@@ -676,6 +678,7 @@ function bindPanelTools() {
     const panel = state.panels[state.activePanel];
     if (!panel) return;
     panel.zoom = Number(zoom.value);
+    panel.manualFocus = true;
     $('zoom-out').textContent = `${panel.zoom.toFixed(2)}×`;
     schedule('draft');
   });
@@ -745,14 +748,14 @@ async function useFile(file) {
     const image = await loadImage(url);
     const version = (assets.get('upload')?.version ?? 0) + 1;
     const label = file.name.replace(/\.[^.]+$/, '').slice(0, 28) || 'Your photo';
-    assets.set('upload', { id: 'upload', label, image, version });
+    assets.set('upload', { id: 'upload', label, image, version, subject: detectSubject(image) });
     assetLabels.upload = label;
     assignSource(state, 'upload', { all: fillAll.checked });
     state.lastSource = 'upload';
     $('apply-all').disabled = false;
     syncPanel();
     draw('preview');
-    setStatus(fillAll.checked ? `Loaded ${label} into all ${state.panels.length} panels with smart crops.` : `Loaded ${label} into panel ${state.activePanel + 1}.`);
+    setStatus(fillAll.checked ? `Loaded ${label} into all ${state.panels.length} panels with face-aware crops.` : `Loaded ${label} into panel ${state.activePanel + 1}.`);
   } catch {
     setStatus('That image could not be decoded. Try another JPG, PNG or WEBP.');
   } finally {
