@@ -1,5 +1,40 @@
 [
-  { "name": "1-cover.jpg", "query": "?shot=cover&photo=pier&caption=Sunset%20Heist", "w": 1080, "h": 1080 },
-  { "name": "2-editor.jpg", "query": "?shot=editor&photo=boulevard&caption=Boulevard%20Queen", "w": 1280, "h": 720 },
-  { "name": "3-cover.jpg", "query": "?shot=cover&photo=boulevard&caption=Boulevard%20Queen", "w": 1080, "h": 1080 }
+  {
+    "name": "1-cover-sunset-grid.jpg",
+    "kind": "exported cover",
+    "query": "?demo=cover",
+    "layout": "classic6",
+    "size": "1920x1080",
+    "export": "PNG, scaled to 1280x720",
+    "w": 1280,
+    "h": 720
+  },
+  {
+    "name": "2-studio-editor.jpg",
+    "kind": "studio with a photo loaded",
+    "query": "?demo=cover",
+    "photo": "samples/boulevard.jpg uploaded through the file picker",
+    "w": 1280,
+    "h": 800
+  },
+  {
+    "name": "3-cover-neon-night.jpg",
+    "kind": "exported cover",
+    "query": "?demo=neon",
+    "layout": "mosaic6",
+    "size": "1080x1350",
+    "export": "PNG, scaled to 1024x1280",
+    "w": 1024,
+    "h": 1280
+  },
+  {
+    "name": "4-cover-coastal-classic.jpg",
+    "kind": "exported cover",
+    "query": "?demo=coast",
+    "layout": "triptych3",
+    "size": "1080x1080",
+    "export": "PNG at native 1080x1080",
+    "w": 1080,
+    "h": 1080
+  }
 ]
