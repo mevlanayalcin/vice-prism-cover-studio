@@ -1,47 +1,50 @@
 [
   {
     "name": "1-cover-sunset-grid.jpg",
-    "kind": "exported cover",
-    "query": "?demo=cover",
-    "layout": "classic6",
+    "kind": "showcase of the exported cover",
+    "query": "?demo=cover&view=showcase",
+    "layout": "classic7",
     "size": "1920x1080",
-    "export": "PNG, scaled to 1280x720",
-    "caption": "SUNSET HEIST · A Leonida Story",
-    "note": "Boulevard portrait painted at the hero cut, pier portrait at the right wing, painted coupe, neon avenue, coast highway and sunset skyline around them.",
+    "grade": "vice-sunset",
+    "caption": "VICE HORIZON · A Leonida Story",
+    "note": "Classic 7-panel mosaic: the heiress, neon boulevard with a coupe, the night driver, the sunset run under the title, harbor chase, searchlight helicopter and the getaway at dusk.",
     "w": 1280,
-    "h": 720
+    "h": 800,
+    "jpeg_quality": 90
   },
   {
     "name": "2-studio-editor.jpg",
-    "kind": "studio with a photo loaded",
-    "query": "?demo=cover",
-    "photo": "samples/boulevard.jpg uploaded through the file picker into panel 2",
-    "note": "Live painterly preview, six layout previews, three post sizes, six grades, five FX sliders, caption fields and the one-click EXPORT PNG button.",
+    "kind": "studio editor",
+    "query": "?demo=cover&panel=2",
+    "note": "Layout rail (nine layouts), post sizes, gallery with packs, colour grades, lettering fields, sticker and light toggles, ink and paint sliders, panel strip with swap and flip, edit / 3D box / showcase views, PNG and JPG export.",
     "w": 1280,
-    "h": 800
+    "h": 800,
+    "jpeg_quality": 90
   },
   {
     "name": "3-cover-neon-night.jpg",
-    "kind": "exported cover",
-    "query": "?demo=neon",
-    "layout": "mosaic6",
+    "kind": "showcase of the exported cover",
+    "query": "?demo=neon&view=showcase",
+    "layout": "asym9",
     "size": "1080x1350",
-    "export": "PNG, scaled to 1024x1280",
-    "caption": "NEON HEIRESS · After Hours in Leonida",
-    "note": "All six cuts populated: painted boulevard and pier portraits, mirrored neon towers, wet-street light trails and a lit marina.",
-    "w": 1024,
-    "h": 1280
+    "grade": "neon-midnight",
+    "caption": "LEONIDA NIGHTS · After Hours on Ocean Drive",
+    "note": "Asymmetric 9-panel cover with every scene relit for night, the boulevard photo painted in, and the live 3D box case beside it.",
+    "w": 1280,
+    "h": 800,
+    "jpeg_quality": 91
   },
   {
     "name": "4-cover-coastal-classic.jpg",
-    "kind": "exported cover",
-    "query": "?demo=coast",
-    "layout": "triptych3",
+    "kind": "showcase of the exported cover",
+    "query": "?demo=coast&view=showcase",
+    "layout": "panorama",
     "size": "1080x1080",
-    "export": "PNG at native 1080x1080",
-    "caption": "COASTAL CLASSIC · Turquoise Season",
-    "note": "Boulevard and pier portraits cleanly framed either side of a sunlit turquoise coast, art-deco facades and palms.",
-    "w": 1080,
-    "h": 1080
+    "grade": "coastal-day",
+    "caption": "MIAMI DRIFT · Turquoise Season",
+    "note": "Panoramic split: harbor chase over the riviera hotel with flamingos and the painted pier photo, with the live 3D box case beside it.",
+    "w": 1280,
+    "h": 800,
+    "jpeg_quality": 91
   }
 ]

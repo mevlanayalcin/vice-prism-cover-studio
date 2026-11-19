@@ -2,10 +2,10 @@
 // Vice Prism Cover Studio — the make.fun entry for gta6-cover-art-01.
 //
 // The app is this repository's app/ folder: plain static files, no build step, no network
-// request. It paints an original multi-panel cover from the user's own photos and procedural
-// Leonida scenes on a Canvas 2D pipeline, lettering included, and exports PNG or JPG at
-// 1080 x 1080, 1080 x 1350 or 1920 x 1080. Photos are framed around the detected face so no
-// cut ever slices a head; the shipped samples carry measured subject boxes.
+// request. It composes an original multi-panel cover from the user's own photos and eight
+// hand-inked vector Leonida illustrations on a Canvas 2D pipeline, lettering included, and
+// exports PNG or JPG at 1080 x 1080, 1080 x 1350 or 1920 x 1080. Photos are framed around the
+// detected face so no cut ever slices a head; scenes keep their subject box whole.
 //
 // This program is only the hand-in. It stages app/ and screenshots/ into the output directory,
 // writes dossier.json with the kit's buildDossier, and prints the gate-facing totals so a run
@@ -22,7 +22,7 @@ import { buildDossier } from './vendor/makefun-app.ts';
 const ENTRY = {
   competition: 'gta6-cover-art-01',
   app: 'Vice Prism Cover Studio',
-  version: '2.0.0',
+  version: '3.0.0',
   runtime: 'Canvas 2D, ES modules, zero dependencies',
 } as const;
 
@@ -35,9 +35,15 @@ const REQUIRED = [
   'js/layouts.js',
   'js/canvas-renderer.js',
   'js/lettering.js',
+  'js/looks.js',
   'js/filters.js',
   'js/editor-state.js',
-  'js/samples.js',
+  'js/photo-subjects.js',
+  'js/showcase.js',
+  'js/art/ink-kit.js',
+  'js/art/props.js',
+  'js/art/figures.js',
+  'js/art/scenes.js',
   'js/exporter.js',
   'fonts/vp-display.woff2',
   'fonts/vp-text.woff2',

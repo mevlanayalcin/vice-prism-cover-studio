@@ -6,132 +6,33 @@
 // coral / gold split tone, and a warm highlight bloom over a screen-angled halftone and a
 // deterministic grain. Faces keep their structure because the range weight guards every edge.
 
+import { FX_DEFAULTS, GRADES } from './looks.js';
+
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
-
-export const FX_DEFAULTS = {
-  paint: 0.78,
-  ink: 0.58,
-  halftone: 0.3,
-  grain: 0.34,
-  grade: 0.9,
-};
-
-export const FX_META = [
-  { key: 'paint', name: 'Oil paint', hint: 'edge-preserving brush smoothing' },
-  { key: 'ink', name: 'Ink contour', hint: 'luminance and chroma outlines' },
-  { key: 'halftone', name: 'Halftone', hint: 'print dot screen' },
-  { key: 'grain', name: 'Film grain', hint: 'ISO 400 tooth' },
-  { key: 'grade', name: 'Colour grade', hint: 'split-tone strength' },
-];
-
-/**
- * Six original grades. Each carries five luminance stops for the posterise map, an accent and a
- * light-leak colour for the renderer, and the two split-tone ends (shadow / highlight) that keep
- * skin alive: violet in the darks, gold or cyan in the lights. Swatches use the same stops.
- */
-export const GRADES = [
-  {
-    id: 'vice-sunset',
-    name: 'Vice Sunset',
-    accent: '#ff2f87',
-    accent2: '#ffb347',
-    light: '255, 128, 78',
-    shadowTint: [58, 12, 78],
-    highlightTint: [255, 214, 132],
-    bloom: 0.26,
-    edge: 0.34,
-    exposure: 1.16,
-    stops: ['#2a0b45', '#62187a', '#d92a86', '#ff8a55', '#ffeec0'],
-  },
-  {
-    id: 'neon-midnight',
-    name: 'Neon Midnight',
-    accent: '#21e6ff',
-    accent2: '#ff3ec8',
-    light: '34, 224, 255',
-    shadowTint: [10, 22, 72],
-    highlightTint: [150, 246, 255],
-    bloom: 0.38,
-    edge: 0.58,
-    exposure: 1.34,
-    stops: ['#081031', '#27227e', '#6b3ada', '#3fe0f5', '#ff9fe8'],
-  },
-  {
-    id: 'palm-gold',
-    name: 'Palm Gold',
-    accent: '#ffbf3c',
-    accent2: '#ff7a32',
-    light: '255, 198, 96',
-    shadowTint: [56, 24, 14],
-    highlightTint: [255, 236, 178],
-    bloom: 0.28,
-    edge: 0.36,
-    exposure: 1.14,
-    stops: ['#221007', '#5c250c', '#b45a16', '#ffb84a', '#fff5cf'],
-  },
-  {
-    id: 'ocean-drive',
-    name: 'Ocean Drive',
-    accent: '#22d7c6',
-    accent2: '#ffd27a',
-    light: '86, 240, 220',
-    shadowTint: [6, 36, 48],
-    highlightTint: [222, 255, 232],
-    bloom: 0.3,
-    edge: 0.4,
-    exposure: 1.12,
-    stops: ['#03191f', '#084650', '#0e8c93', '#4fe0cb', '#ffefc2'],
-  },
-  {
-    id: 'heatwave-coral',
-    name: 'Heatwave Coral',
-    accent: '#ff4f6d',
-    accent2: '#ffa14a',
-    light: '255, 120, 96',
-    shadowTint: [64, 10, 40],
-    highlightTint: [255, 216, 168],
-    bloom: 0.26,
-    edge: 0.36,
-    exposure: 1.12,
-    stops: ['#2c0717', '#6e1032', '#d32b55', '#ff8064', '#ffe3b0'],
-  },
-  {
-    id: 'coastal-day',
-    name: 'Coastal Day',
-    accent: '#17d3c4',
-    accent2: '#ff8a6a',
-    light: '130, 246, 236',
-    shadowTint: [8, 52, 62],
-    highlightTint: [255, 240, 206],
-    bloom: 0.32,
-    edge: 0.44,
-    exposure: 1.1,
-    stops: ['#05343d', '#0d7f8a', '#3fd0c2', '#ffb98d', '#fff7e6'],
-  },
-];
-
-export const gradeById = (id) => GRADES.find((g) => g.id === id) ?? GRADES[0];
-
 const rgbOf = (hex) => {
   const n = Number.parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
 
-export const swatchCss = (grade) => `linear-gradient(135deg, ${grade.stops.join(', ')})`;
-
-/** Paint one panel's pixels in place. */
-export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, seed = 7 } = {}) {
+/**
+ * Paint one panel's pixels in place. A photo gets the full pipeline; an `illustrated` panel is
+ * already inked and cel-shaded vector art, so it skips the smoothing and contour passes and takes
+ * only a lighter grade, bloom, halftone and grain, which keeps its keylines razor sharp.
+ */
+export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, seed = 7, illustrated = false } = {}) {
   const { data, width, height } = imageData;
   if (!width || !height) return imageData;
 
-  const paint = clamp01(fx.paint);
-  const ink = clamp01(fx.ink);
+  const paint = illustrated ? 0 : clamp01(fx.paint);
+  const ink = illustrated ? 0 : clamp01(fx.ink);
   const inkOn = ink > 0.01;
 
   // Pass 1: two separable bilateral rounds. Round one flattens skin and glass into clean
   // values; round two knocks out the remaining photographic micro-detail inside each region.
-  bilateral(data, width, height, 2 + Math.round(paint * 3), 20 + paint * 26, 2.1 + paint);
-  if (paint > 0.08) bilateral(data, width, height, 2, 11 + paint * 9, 1.5);
+  if (!illustrated) {
+    bilateral(data, width, height, 2 + Math.round(paint * 3), 20 + paint * 26, 2.1 + paint);
+    if (paint > 0.08) bilateral(data, width, height, 2, 11 + paint * 9, 1.5);
+  }
 
   const luma = new Float32Array(width * height);
   for (let p = 0, i = 0; p < luma.length; p++, i += 4) {
@@ -161,12 +62,13 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
     return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
   };
 
-  const levels = Math.max(7, Math.round(12 - paint * 4));
-  const gradeMix = clamp01(fx.grade);
-  const celMix = 0.28 + paint * 0.3;
-  const saturation = 1.18 + gradeMix * 0.42;
-  const exposure = grade.exposure ?? 1.1;
-  const bloom = grade.bloom ?? 0.26;
+  const levels = Math.max(6, Math.round(12 - paint * 5));
+  const gradeMix = clamp01(fx.grade) * (illustrated ? 0.55 : 1);
+  const celMix = illustrated ? 0 : 0.34 + paint * 0.36;
+  const saturation = illustrated ? 1.04 + gradeMix * 0.12 : 1.18 + gradeMix * 0.42;
+  const exposure = 1 + ((grade.exposure ?? 1.1) - 1) * (illustrated ? 0.25 : 0.4);
+  const bloom = (grade.bloom ?? 0.26) * (illustrated ? 0.5 : 1);
+  const tooth = illustrated ? 0.45 : 1;
   const shadowLuma = Math.max(0.05, shadow[0] * 0.2126 + shadow[1] * 0.7152 + shadow[2] * 0.0722);
   const highLuma = Math.max(0.05, high[0] * 0.2126 + high[1] * 0.7152 + high[2] * 0.0722);
   const shadowMul = [shadow[0] / shadowLuma, shadow[1] / shadowLuma, shadow[2] / shadowLuma];
@@ -191,7 +93,8 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
 
       // Print curve: lift the shadows, roll the highlights, then tint without moving the
       // value. Every step below restores the pixel's luminance, so contrast survives the grade.
-      l = clamp01((l - 0.5) * 1.16 + 0.515);
+      l = clamp01((l - 0.5) * (illustrated ? 1.04 : 1.34) + 0.5);
+      if (!illustrated) l = Math.pow(l, 1.08);
       l = l * l * (3 - 2 * l) * 0.22 + l * 0.78;
       const pal = paletteAt(l);
 
@@ -303,7 +206,7 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
         const d = Math.hypot(du, dv);
         const radius = 0.1 + (1 - l) * 0.34;
         const dot = clamp01((radius + 0.08 - d) / 0.16);
-        const amt = dot * fx.halftone * (0.4 - l * 0.24);
+        const amt = dot * fx.halftone * (0.4 - l * 0.24) * tooth;
         r *= 1 - amt;
         g *= 1 - amt;
         b *= 1 - amt;
@@ -314,7 +217,7 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
         let h = (x * 374761393 + y * 668265263 + seed * 1274126177) | 0;
         h = ((h ^ (h >>> 13)) * 1274126177) | 0;
         const n = (((h ^ (h >>> 16)) >>> 0) % 1024) / 1023 - 0.5;
-        const k = 1 + n * fx.grain * 0.15;
+        const k = 1 + n * fx.grain * 0.15 * tooth;
         r = clamp01(r * k);
         g = clamp01(g * k);
         b = clamp01(b * k);
