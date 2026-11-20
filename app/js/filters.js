@@ -16,6 +16,53 @@ const smooth = (a, b, v) => {
   const t = clamp01((v - a) / (b - a));
   return t * t * (3 - 2 * t);
 };
+
+// One place to make the six paint sliders safe: finite numbers only, each clamped to 0..1, with
+// the house recipe as the fallback. Every pass below can then use the values without re-checking.
+export function normalizePaintOptions(fx = {}) {
+  const source = fx && typeof fx === 'object' ? fx : {};
+  const unit = (key) => {
+    const value = Number(source[key]);
+    return clamp01(Number.isFinite(value) ? value : FX_DEFAULTS[key]);
+  };
+  return {
+    paint: unit('paint'),
+    ink: unit('ink'),
+    bands: unit('bands'),
+    halftone: unit('halftone'),
+    grain: unit('grain'),
+    grade: unit('grade'),
+  };
+}
+
+// The poster-band, S-curve, gamma and night tone map, evaluated once per pixel into a table the
+// paint loop reads. The arithmetic is the same double-precision curve as before (including the
+// skin-aware terms), so the default recipe renders byte-identically.
+export function buildToneCurveLut(luma, skin, { levels = 8, bands = 0.5, gamma = 1.06, night = 0 } = {}) {
+  const n = luma?.length ?? 0;
+  const lut = new Float64Array(n);
+  const steps = Math.max(1, Math.round(Number.isFinite(Number(levels)) ? Number(levels) : 8));
+  const bandMix = clamp01(Number.isFinite(Number(bands)) ? Number(bands) : 0.5);
+  const curveGamma = Number.isFinite(Number(gamma)) ? Math.max(0.2, Number(gamma)) : 1.06;
+  const nightMix = clamp01(Number.isFinite(Number(night)) ? Number(night) : 0);
+  for (let p = 0; p < n; p++) {
+    const l = clamp01(Number.isFinite(luma[p]) ? luma[p] : 0);
+    const sk = clamp01(Number.isFinite(skin?.[p]) ? skin[p] : 0);
+    const q0 = l * steps;
+    const k0 = Math.floor(q0);
+    const f = q0 - k0;
+    const q = (k0 + smooth(0.3, 0.7, f)) / steps;
+    let t = l + (q - l) * bandMix * (0.8 - sk * 0.4);
+    t = clamp01((t - 0.5) * (1.32 - sk * 0.16) + 0.5);
+    t = t * t * (3 - 2 * t) * 0.35 + t * 0.65;
+    t = Math.pow(t, 1 + (curveGamma - 1) * (1 - sk * 0.7));
+    if (t > 0.86) t = 0.86 + (t - 0.86) * 0.6;
+    t *= 1 - nightMix * 0.22 * smooth(0.3, 0.8, t);
+    lut[p] = t;
+  }
+  return lut;
+}
+
 const rgbOf = (hex) => {
   const n = Number.parseInt(hex.slice(1), 16);
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
@@ -47,10 +94,7 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
   if (!w || !h) return imageData;
   const n = w * h;
   const unit = coverUnit || Math.min(w, h) * 1.6;
-  const paint = clamp01(fx.paint);
-  const ink = clamp01(fx.ink);
-  const bands = clamp01(fx.bands ?? 0.5);
-  const amt = clamp01(fx.grade);
+  const { paint, ink, bands, halftone, grain, grade: amt } = normalizePaintOptions(fx);
 
   // Ink is traced on the denoised photo, before the paint, so contours follow the real shapes
   // and never the edges of brush blocks.
@@ -77,26 +121,7 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
   }
   blurMask(skin, w, h, Math.max(1, Math.round(unit * 0.004)), 2);
 
-  // XDoG: a pixel darker than its neighbourhood, relative to that neighbourhood's light, is ink.
-  // The fine scale draws features, the wide one the bold outer silhouettes; the bright side of
-  // the same edges carries the rim light.
-  const lines = new Float32Array(n);
-  const rimMask = new Float32Array(n);
-  for (let p = 0; p < n; p++) {
-    const fine = (g2[p] - g1[p]) / (0.06 + g2[p]);
-    const bold = (g3[p] - g1[p]) / (0.06 + g3[p]);
-    lines[p] = Math.max(smooth(0.028, 0.075, fine), smooth(0.11, 0.28, bold) * 0.85) * ink;
-    rimMask[p] = smooth(0.04, 0.2, (g1[p] - g3[p]) / (0.1 + g3[p]));
-  }
-  blurMask(rimMask, w, h, Math.max(1, s), 1);
-  // speckle filter: where ink would cover much of a neighbourhood (spray, foliage, fabric
-  // print) it is texture, not contour, so it fades and only clean outlines stay
-  // and an isolated dot (a ripple, a pore) is no contour either: a line keeps enough of its
-  // small neighbourhood inked, a speck does not
-  const density = blurMask(Float32Array.from(lines), w, h, s * 4 + 2, 1);
-  const near = blurMask(Float32Array.from(lines), w, h, s * 2, 1);
-  const k = 1 / Math.max(0.05, ink);
-  for (let p = 0; p < n; p++) lines[p] *= smooth(0.07, 0.18, near[p] * k) * (1 - smooth(0.18, 0.4, density[p] * k));
+  const { lines, rim: rimMask } = computeEdgeMask({ g1, g2, g3, width: w, height: h, ink, scale: s });
 
   const glow = new Float32Array(n);
   for (let p = 0, i = 0; p < n; p++, i += 4) {
@@ -122,6 +147,7 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
   const bloom = grade.bloom ?? 0.28;
   const night = grade.night ? amt : 0;
   const dot = Math.max(3.2, unit * 0.0046);
+  const tone = buildToneCurveLut(luma, skin, { levels, bands, gamma, night });
 
   for (let y = 0, p = 0, i = 0; y < h; y++) {
     const fy = y / h;
@@ -132,17 +158,8 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
       const l0 = luma[p];
       const sk = skin[p];
 
-      // poster bands and the comic S-curve; skin keeps a gentler curve
-      const q0 = l0 * levels;
-      const k0 = Math.floor(q0);
-      const f = q0 - k0;
-      const q = (k0 + smooth(0.3, 0.7, f)) / levels;
-      let t = l0 + (q - l0) * bands * (0.8 - sk * 0.4);
-      t = clamp01((t - 0.5) * (1.32 - sk * 0.16) + 0.5);
-      t = t * t * (3 - 2 * t) * 0.35 + t * 0.65;
-      t = Math.pow(t, 1 + (gamma - 1) * (1 - sk * 0.7));
-      if (t > 0.86) t = 0.86 + (t - 0.86) * 0.6;
-      t *= 1 - night * 0.22 * smooth(0.3, 0.8, t);
+      // the tone table carries the poster bands, comic S-curve and night rolloff
+      const t = tone[p];
       const sc = l0 > 0.003 ? t / l0 : 1;
       r *= sc;
       g *= sc;
@@ -215,20 +232,20 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
         b += (inkCol[2] - b) * k;
       }
 
-      if (fx.halftone > 0.01 && l < 0.55) {
+      if (halftone > 0.01 && l < 0.55) {
         const u = (x * 0.7071 - y * 0.7071) / dot;
         const v = (x * 0.7071 + y * 0.7071) / dot;
         const d = Math.hypot(u - Math.round(u), v - Math.round(v));
-        const a = clamp01((0.12 + (0.55 - l) * 0.7 - d) / 0.1) * fx.halftone * clamp01((0.55 - l) * 2.2) * 0.42;
+        const a = clamp01((0.12 + (0.55 - l) * 0.7 - d) / 0.1) * halftone * clamp01((0.55 - l) * 2.2) * 0.42;
         r *= 1 - a;
         g *= 1 - a;
         b *= 1 - a * 0.85;
       }
 
-      if (fx.grain > 0.01) {
+      if (grain > 0.01) {
         let hs = (x * 374761393 + y * 668265263 + seed * 1274126177) | 0;
         hs = ((hs ^ (hs >>> 13)) * 1274126177) | 0;
-        const k = 1 + ((((hs ^ (hs >>> 16)) >>> 0) % 1024) / 1023 - 0.5) * fx.grain * 0.12;
+        const k = 1 + ((((hs ^ (hs >>> 16)) >>> 0) % 1024) / 1023 - 0.5) * grain * 0.12;
         r *= k;
         g *= k;
         b *= k;
@@ -266,6 +283,32 @@ export function blurMask(mask, w, h, radius, passes = 1) {
     }
   }
   return mask;
+}
+
+// XDoG edge work in one pass: a pixel darker than its neighbourhood, relative to that
+// neighbourhood's light, is ink. The fine scale draws features, the wide one the bold outer
+// silhouettes; the bright side of the same edges carries the rim light. The speckle filter keeps
+// clean outlines: where ink covers much of a neighbourhood (spray, foliage, fabric print) it is
+// texture and fades, and an isolated dot (a ripple, a pore) is no contour either.
+export function computeEdgeMask({ g1, g2, g3, width: w = 0, height: h = 0, ink = 1, scale = 1 } = {}) {
+  const n = w * h;
+  const lines = new Float32Array(n);
+  const rim = new Float32Array(n);
+  const strength = clamp01(Number.isFinite(Number(ink)) ? Number(ink) : 1);
+  const s = Math.max(1, Math.round(Number.isFinite(Number(scale)) ? Number(scale) : 1));
+  if (!n || !g1 || !g2 || !g3) return { lines, rim };
+  for (let p = 0; p < n; p++) {
+    const fine = (g2[p] - g1[p]) / (0.06 + g2[p]);
+    const bold = (g3[p] - g1[p]) / (0.06 + g3[p]);
+    lines[p] = Math.max(smooth(0.028, 0.075, fine), smooth(0.11, 0.28, bold) * 0.85) * strength;
+    rim[p] = smooth(0.04, 0.2, (g1[p] - g3[p]) / (0.1 + g3[p]));
+  }
+  blurMask(rim, w, h, s, 1);
+  const density = blurMask(Float32Array.from(lines), w, h, s * 4 + 2, 1);
+  const near = blurMask(Float32Array.from(lines), w, h, s * 2, 1);
+  const k = 1 / Math.max(0.05, strength);
+  for (let p = 0; p < n; p++) lines[p] *= smooth(0.07, 0.18, near[p] * k) * (1 - smooth(0.18, 0.4, density[p] * k));
+  return { lines, rim };
 }
 
 // Kuwahara oil paint over summed-area tables: each pixel takes the four quadrant means weighted by

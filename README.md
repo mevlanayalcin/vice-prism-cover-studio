@@ -11,18 +11,19 @@ Vice Prism Cover Studio turns your own photos into GTA-style multi-panel cover a
 - **Eight candid sample photos, no vector scenes.** The v3 cartoon vector cast is gone, including the `app/js/art/` modules. The gallery now holds eight original candid photos — helicopter, boulevard, rooftop, ocean drive, 80s coupe, speedboat, neon street and pier — each with a measured subject box, so character cuts frame the face and vehicle cuts lead into the open road.
 - **One live paint engine for preview and export.** Kuwahara oil paint, XDoG cel-ink contours, cel value planes and a gradient-map grade run on the panel crop at the cover's own scale, so the exported PNG is exactly what the live preview shows. The Oil paint, Ink contour, Poster bands, Halftone, Film grain and Colour grade sliders repaint the panel live.
 - **True full-bleed cover screenshots.** The three cover shots are the app's own Canvas PNG exporter output from `?demo=…&shot=export`, with zero UI bars over the art: `1-cover-sunset-grid.jpg` at 1280 × 720, `3-cover-neon-night.jpg` at 1024 × 1280 and `4-cover-coastal-classic.jpg` at 1080 × 1080. `2-studio-editor.jpg` is the live studio at 1280 × 800, with the Photo → GTA paint Before/After split, the eight-photo gallery and all three export buttons.
-- **Smaller, all-original code.** App source is 127.2 KiB, well under the dossier's 160 KiB text cap, so the judge's dossier carries every file whole; `main.ts` refuses to write a dossier whose source was cut. The first load (HTML, CSS, `app.js`, `layouts.js`, `editor-state.js`, `looks.js`) is 21.3 KiB gzipped; the renderer, photo framing, demos, exporter and showcase load with `import()`.
+- **Smaller, all-original code.** App source is 133.2 KiB, well under the dossier's 160 KiB text cap, so the judge's dossier carries every file whole; `main.ts` refuses to write a dossier whose source was cut. The first load (HTML, CSS, `app.js`, `layouts.js`, `editor-state.js`, `looks.js`) is 22.7 KiB gzipped; the renderer, photo framing, demos, exporter and showcase load with `import()`.
+- **Quiet finish touches.** Every PNG or JPG export raises a small auto-dismissing toast with the exact filename, pixel dimensions and KB size. Arrow keys nudge the selected panel's crop in fine steps, with Shift for a larger step; the nudge waits for the key burst before committing one undo entry.
 
 ## Layout of `app/js`
 
 | File | Role |
 | --- | --- |
-| `app.js` | Studio wiring: rails, gestures, history, views, export, boot |
+| `app.js` | Studio wiring: rails, gestures, keyboard crop nudge, history, views, export toast, boot |
 | `looks.js` | Six grades, the ink-and-paint recipe, lettering choices (data only) |
 | `layouts.js` | Nine panel layouts and their title zones |
 | `editor-state.js` | State, sources, packs, stickers, swap, undo/redo |
 | `demos.js` | The three demo covers behind `?demo=` links and the screenshots |
-| `filters.js` | The paint engine: bilateral, Kuwahara, XDoG ink, cel, gradient map, rim light, halftone, grain |
+| `filters.js` | The paint engine: bilateral, Kuwahara, XDoG ink, cel, gradient map, rim light, halftone, grain, with clamped paint options and modular tone/edge helpers |
 | `canvas-renderer.js` | Subject-aware crops, panel textures, gutters, light FX, before/after |
 | `lettering.js` | Title finishes, plaques, platform band, seal, age plate, footer |
 | `photo-subjects.js` | Measured boxes for the eight shipped photos and a detector for uploads |

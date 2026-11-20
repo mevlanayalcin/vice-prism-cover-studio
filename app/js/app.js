@@ -8,7 +8,7 @@ import { FONT_STYLE_OPTIONS, FX_DEFAULTS, FX_META, GRADES, gradeById, swatchCss,
 import { assignMany, assignSource, createHistory, createState, mixSources, resetPanel, setLayout, setSize, SIZES, sizeOf, SOURCE_IDS, STICKERS, swapPanels } from './editor-state.js';
 
 const $ = (id) => document.getElementById(id);
-const [poster, overlay, stage, posterWrap, boxView, fillAll, compare] = ['poster', 'overlay', 'stage', 'poster-wrap', 'box-view', 'fill-all', 'compare'].map($);
+const [poster, overlay, stage, posterWrap, boxView, fillAll, compare, toast] = ['poster', 'overlay', 'stage', 'poster-wrap', 'box-view', 'fill-all', 'compare', 'toast'].map($);
 const assets = new Map();
 const state = createState();
 const history = createHistory(state);
@@ -27,6 +27,12 @@ let format = 'png';
 let view = 'edit';
 let split = 0.5;
 const timers = {};
+const TOAST_MS = 4800;
+const NUDGE_FINE = 0.004;
+const NUDGE_COARSE = 0.02;
+const ARROW_NUDGES = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+let toastTimer = 0;
+let toastHide = 0;
 
 const setStatus = (text) => ($('status').textContent = text);
 const labelOf = (id) => assets.get(id)?.label ?? id;
@@ -43,11 +49,36 @@ function make(tag, cls = '', html = '') {
   return node;
 }
 
+// A small, self-dismissing confirmation. It sits above the status bar, ignores the pointer and
+// never enters the layout, so the studio screenshots stay pixel-identical until an export runs.
+function showToast(title, detail) {
+  clearTimeout(toastTimer);
+  clearTimeout(toastHide);
+  toast.replaceChildren(make('strong', '', title), make('span', '', detail));
+  toast.hidden = false;
+  void toast.offsetWidth;
+  toast.classList.add('show');
+  toastTimer = setTimeout(hideToast, TOAST_MS);
+}
+
+function hideToast() {
+  clearTimeout(toastTimer);
+  toast.classList.remove('show');
+  toastHide = setTimeout(() => (toast.hidden = true), 200);
+}
+
+function showExportToast({ name, width, height, bytes, format: kind }) {
+  const label = kind === 'jpeg' ? 'JPG' : 'PNG';
+  const kb = `${(bytes / 1024).toFixed(1)} KB`;
+  showToast(`${label} export ready`, `${name} · ${width} × ${height} px · ${kb}`);
+  window.__lastToast = { name, width, height, bytes, kb, format: kind };
+}
+
 function rail(id, items, cls, paint, pick) {
   $(id).replaceChildren(...items.map((item) => {
     const button = make('button', cls);
     paint(button, item);
-    button.onclick = () => pick(item);
+    button.onclick = pick ? () => pick(item) : null;
     return button;
   }));
 }
@@ -201,7 +232,7 @@ function buildRails() {
     b.dataset.size = s.id;
     b.title = `Export ${s.width} × ${s.height} in one click`;
     b.innerHTML = `<strong>${s.width}×${s.height}</strong><em>${s.ratio} ${s.label}</em>`;
-  }, (s) => triggerExport(s.id));
+  });
   rail('grade-list', GRADES, 'grade-btn', (b, g) => {
     b.dataset.grade = g.id;
     b.innerHTML = `<i style="background:${swatchCss(g)}"></i><span>${g.name}</span>`;
@@ -326,6 +357,31 @@ function takeOver(panel, index) {
   return plan;
 }
 
+// Arrow-key micro-nudging: each press moves the selected panel's crop window a fraction of the
+// photo, Shift takes a 5× step, and the history commit waits for the key burst to settle so a
+// held arrow key is one undoable edit rather than forty.
+function nudgeCrop(dx, dy, large = false) {
+  const panel = active();
+  if (!panel) return false;
+  takeOver(panel, state.activePanel);
+  const step = large ? NUDGE_COARSE : NUDGE_FINE;
+  const x = Math.max(0, Math.min(1, panel.focusX + dx * step));
+  const y = Math.max(0, Math.min(1, panel.focusY + dy * step));
+  if (x === panel.focusX && y === panel.focusY) return false;
+  Object.assign(panel, { focusX: x, focusY: y });
+  schedule('draft');
+  later('nudge', 280, () => refresh(`Panel ${state.activePanel + 1} crop nudged: ${x.toFixed(3)}, ${y.toFixed(3)} · arrows fine-tune, Shift for a bigger step.`));
+  return true;
+}
+
+function nudgeFromKey(event) {
+  const delta = ARROW_NUDGES[event.key];
+  if (!delta || event.metaKey || event.ctrlKey || event.altKey) return false;
+  event.preventDefault();
+  nudgeCrop(delta[0], delta[1], event.shiftKey);
+  return true;
+}
+
 function eventPanel(event) {
   const rect = overlay.getBoundingClientRect();
   if (!rect.width) return null;
@@ -393,49 +449,76 @@ function bindCanvas() {
   compare.onpointerup = () => (comparing = false);
 }
 
-function bindTools() {
-  const tool = (id, fn) => ($(id).onclick = fn);
-  $('panel-grade').onchange = (e) => refresh(`Panel ${state.activePanel + 1} grade: ${(active().gradeOverride = e.target.value)}.`);
-  $('shot-select').onchange = (e) => {
-    Object.assign(active(), { shot: e.target.value, manualFocus: false });
-    refresh(`Panel ${state.activePanel + 1}: ${e.target.selectedOptions[0].text.toLowerCase()}, framed on its subject.`);
-  };
-  $('zoom-range').oninput = () => {
-    takeOver(active(), state.activePanel);
-    active().zoom = +$('zoom-range').value;
-    $('zoom-out').textContent = `${active().zoom.toFixed(2)}×`;
-    schedule('draft');
-  };
-  $('rotate-range').oninput = () => {
-    active().rotate = +$('rotate-range').value;
-    $('rotate-out').textContent = `${active().rotate}°`;
-    schedule('draft');
-  };
+function setPanelGrade(gradeId) {
+  active().gradeOverride = gradeId;
+  refresh(`Panel ${state.activePanel + 1} grade: ${gradeId}.`);
+}
+
+function setShotSize(shot) {
+  Object.assign(active(), { shot, manualFocus: false });
+  refresh(`Panel ${state.activePanel + 1}: ${$('shot-select').selectedOptions[0].text.toLowerCase()}, framed on its subject.`);
+}
+
+function setZoom(value) {
+  takeOver(active(), state.activePanel);
+  active().zoom = +value;
+  $('zoom-out').textContent = `${active().zoom.toFixed(2)}×`;
+  schedule('draft');
+}
+
+function setRotation(value) {
+  active().rotate = +value;
+  $('rotate-out').textContent = `${active().rotate}°`;
+  schedule('draft');
+}
+
+function flipActivePanel() {
+  refresh(`Panel ${state.activePanel + 1} ${(active().flip = !active().flip) ? 'flipped' : 'unflipped'}.`);
+}
+
+function resetActiveCrop() {
+  refresh(`Panel ${resetPanel(state) && state.activePanel + 1} back to its smart crop.`);
+}
+
+function toggleSwapMode() {
+  swapFrom = swapFrom == null ? state.activePanel : null;
+  $('swap-btn').classList.toggle('on', swapFrom != null);
+  drawOverlay();
+  setStatus(swapFrom != null ? `Swap: pick the panel to trade with panel ${swapFrom + 1}.` : 'Swap cancelled.');
+}
+
+function bindPanelControls() {
+  $('panel-grade').onchange = (event) => setPanelGrade(event.target.value);
+  $('shot-select').onchange = (event) => setShotSize(event.target.value);
+  $('zoom-range').oninput = (event) => setZoom(event.target.value);
+  $('rotate-range').oninput = (event) => setRotation(event.target.value);
   $('zoom-range').onchange = $('rotate-range').onchange = () => refresh();
-  tool('flip-btn', () => refresh(`Panel ${state.activePanel + 1} ${(active().flip = !active().flip) ? 'flipped' : 'unflipped'}.`));
-  tool('reset-panel', () => refresh(`Panel ${resetPanel(state) && state.activePanel + 1} back to its smart crop.`));
-  tool('swap-btn', () => {
-    swapFrom = swapFrom == null ? state.activePanel : null;
-    $('swap-btn').classList.toggle('on', swapFrom != null);
-    drawOverlay();
-    setStatus(swapFrom != null ? `Swap: pick the panel to trade with panel ${swapFrom + 1}.` : 'Swap cancelled.');
-  });
-  tool('export-btn', () => triggerExport());
-  tool('quick-export', () => triggerExport());
-  tool('undo-btn', () => travel(-1));
-  tool('redo-btn', () => travel(1));
-  tool('fx-reset', () => {
-    state.fx = { ...FX_DEFAULTS };
-    refresh('Ink and paint back to the house recipe.');
-  });
-  tool('mix-btn', () => refresh(`Shuffled the photos across the panels${mixSources(state, sourceIds()) && '.'}`));
-  fillAll.onchange = () => fillAll.checked && placeSource(active().source);
-  for (const b of document.querySelectorAll('.quick-btn')) b.onclick = () => setDemo(b.dataset.demo);
-  for (const b of $('format-row').children) b.onclick = () => setFormat(b.dataset.format);
-  for (const b of $('view-row').children) b.onclick = () => setView(b.dataset.view);
+  $('flip-btn').onclick = flipActivePanel;
+  $('reset-panel').onclick = resetActiveCrop;
+  $('swap-btn').onclick = toggleSwapMode;
+}
+
+function bindExportActions() {
+  $('export-btn').onclick = () => triggerExport();
+  $('quick-export').onclick = () => triggerExport();
+  for (const button of $('format-row').children) button.onclick = () => setFormat(button.dataset.format);
+  for (const button of $('export-sizes').children) button.onclick = () => triggerExport(button.dataset.size);
+}
+
+function resetPaintRecipe() {
+  state.fx = { ...FX_DEFAULTS };
+  refresh('Ink and paint back to the house recipe.');
+}
+
+function shufflePhotos() {
+  refresh(`Shuffled the photos across the panels${mixSources(state, sourceIds()) && '.'}`);
+}
+
+function bindKeyboardShortcuts() {
   window.addEventListener('keydown', (event) => {
-    const typing = /INPUT|SELECT/.test(event.target.tagName);
+    const typing = /INPUT|SELECT|TEXTAREA/.test(event.target.tagName);
     const key = event.key.toLowerCase();
+    if (!typing && nudgeFromKey(event)) return;
     const n = state.panels.length;
     if ((event.metaKey || event.ctrlKey) && (key === 'e' || (!typing && /^[zy]$/.test(key)))) {
       event.preventDefault();
@@ -444,6 +527,19 @@ function bindTools() {
     } else if (!typing && (key === '[' || key === ']')) pickPanel((state.activePanel + (key === ']' ? 1 : n - 1)) % n);
     else if (!typing && /^[1-9]$/.test(key) && +key <= n) pickPanel(key - 1);
   });
+}
+
+function bindTools() {
+  bindPanelControls();
+  bindExportActions();
+  $('undo-btn').onclick = () => travel(-1);
+  $('redo-btn').onclick = () => travel(1);
+  $('fx-reset').onclick = resetPaintRecipe;
+  $('mix-btn').onclick = shufflePhotos;
+  fillAll.onchange = () => fillAll.checked && placeSource(active().source);
+  for (const b of document.querySelectorAll('.quick-btn')) b.onclick = () => setDemo(b.dataset.demo);
+  for (const b of $('view-row').children) b.onclick = () => setView(b.dataset.view);
+  bindKeyboardShortcuts();
 }
 
 // Reads every dropped or picked image on this machine, finds its subject and places it: one photo
@@ -537,7 +633,12 @@ async function setDemo(name) {
   refresh(`${document.querySelector(`[data-demo="${name}"]`)?.textContent ?? name} loaded: every panel a different photo.`, true);
 }
 
-const exportNow = async (fmt = format, download = true, size) => (await load('exporter')).exportCover(state, assets, { format: fmt, download, size });
+async function exportNow(fmt = format, download = true, size) {
+  const result = await (await load('exporter')).exportCover(state, assets, { format: fmt, download, size });
+  window.__lastExport = { width: result.width, height: result.height, bytes: result.bytes, name: result.name, format: result.format };
+  if (download) showExportToast(result);
+  return result;
+}
 
 function triggerExport(size) {
   if (busy) return;
@@ -548,7 +649,6 @@ function triggerExport(size) {
   requestAnimationFrame(async () => {
     try {
       const { width, height, bytes, name } = await exportNow(format, true, target.id);
-      window.__lastExport = { width, height, bytes, name, format };
       setStatus(`Exported ${name} · ${(bytes / 1048576).toFixed(2)} MB · ${width} × ${height}.`);
     } catch (error) {
       setStatus(`Export failed: ${error.message}`);
