@@ -1,4 +1,4 @@
-// Nine original comic-mosaic layouts. Each one tiles the unit square edge to edge with slanted
+// Nine original comic-mosaic layouts, the five signature poster cuts first. Each one tiles the unit square edge to edge with slanted
 // convex cuts; buildGeometry then insets every cut in pixels, so the black gutters are one even
 // width (GUTTER of the short side) at every post size, with a matching outer frame. Rows are built
 // from tilted lines [yLeft, yRight] and dividers [xTop, xBottom] so neighbouring cuts share edges.
@@ -23,31 +23,36 @@ const layout = (id, name, note, cuts, title, badge) => ({
 });
 
 export const LAYOUTS = [
-  layout('classic7', 'Classic 7-Panel', 'Three cuts, a full-width title band, three cuts.', [
+  layout('classic7', 'Classic Vice Grid', 'The signature grid: a diagonal helicopter corner top left, three cuts, a full-width title band, three cuts.', [
     ...row(TOP, [0.47, 0.43], [[0.35, 0.31], [0.66, 0.7]]),
     ...row([0.47, 0.43], [0.745, 0.705]),
     ...row([0.745, 0.705], FOOT, [[0.31, 0.36], [0.69, 0.645]]),
   ], zone(0.06, 0.458, 0.88, 0.272), [0.928, 0.585, 0.13]),
-  layout('asym7', 'Asymmetric 7', 'Two offset pairs, a tall title band and a two-cut foot.', [
+  layout('mosaic8', 'Widescreen Action Mosaic', 'Four leaning action cuts, a widescreen title band and three cuts below.', [
+    ...row(TOP, [0.36, 0.32], [[0.25, 0.22], [0.5, 0.47], [0.75, 0.72]]),
+    ...row([0.36, 0.32], [0.66, 0.62]),
+    ...row([0.66, 0.62], FOOT, [[0.33, 0.37], [0.67, 0.63]]),
+  ], zone(0.06, 0.345, 0.88, 0.29), [0.925, 0.47, 0.12]),
+  layout('hero-split', 'Hero Split Poster', 'A full-height hero portrait split from three stacked action shards.', [
+    [[0, 0], [0.5, 0], [0.42, 1], [0, 1]],
+    [[0.5, 0], [1, 0], [1, 0.3], [0.4712, 0.36]],
+    [[0.4712, 0.36], [1, 0.3], [1, 0.64], [0.444, 0.7]],
+    [[0.444, 0.7], [1, 0.64], [1, 1], [0.42, 1]],
+  ], zone(0.47, 0.33, 0.5, 0.34), [0.92, 0.9, 0.12]),
+  layout('asym7', 'Portrait Box Art', 'Built for 4:5: two offset pairs, a tall title band and a two-cut foot.', [
     ...row(TOP, [0.28, 0.26], [[0.6, 0.57]]),
     ...row([0.28, 0.26], [0.53, 0.51], [[0.6, 0.64]]),
     ...row([0.53, 0.51], [0.81, 0.79]),
     ...row([0.81, 0.79], FOOT, [[0.52, 0.48]]),
   ], zone(0.05, 0.522, 0.9, 0.27), [0.885, 0.735, 0.15]),
+  layout('triptych3', 'Neon Triptych', 'Three leaning towers of a postcard, lettering across the foot.', [
+    ...row(TOP, FOOT, [[0.34, 0.31], [0.68, 0.655]]),
+  ], zone(0.05, 0.66, 0.9, 0.22), [0.9, 0.08, 0.13]),
   layout('diagonal5', 'Diagonal 5-Panel', 'A wide hero under the title, then four cuts on crossing diagonals.', [
     ...row(TOP, [0.53, 0.46]),
     ...row([0.53, 0.46], [0.75, 0.71], [[0.6, 0.47]]),
     ...row([0.75, 0.71], FOOT, [[0.42, 0.57]]),
   ], zone(0.06, 0.03, 0.88, 0.235), [0.885, 0.4, 0.15]),
-  layout('classic6', 'Classic 6-Panel', 'Three cuts, a title band and a two-cut foot.', [
-    ...row(TOP, [0.47, 0.45], [[0.35, 0.33], [0.68, 0.665]]),
-    ...row([0.47, 0.45], [0.74, 0.72]),
-    ...row([0.74, 0.72], FOOT, [[0.49, 0.52]]),
-  ], zone(0.06, 0.47, 0.88, 0.255), [0.925, 0.59, 0.13]),
-  layout('panorama', 'Panoramic Split', 'A widescreen panorama over a split pair, lettering on the seam.', [
-    ...row(TOP, [0.56, 0.48]),
-    ...row([0.56, 0.48], FOOT, [[0.52, 0.47]]),
-  ], zone(0.06, 0.25, 0.88, 0.24), [0.9, 0.08, 0.13]),
   layout('tower5', 'Neon Tower', 'One full-height tower cut beside four stacked shards.', [
     [[0, 0], [0.4, 0], [0.43, 1], [0, 1]],
     [[0.4, 0], [0.72, 0], [0.7, 0.36], [0.4108, 0.36]],
@@ -55,9 +60,6 @@ export const LAYOUTS = [
     [[0.4108, 0.36], [1, 0.36], [1, 0.68], [0.4204, 0.68]],
     [[0.4204, 0.68], [1, 0.68], [1, 1], [0.43, 1]],
   ], zone(0.45, 0.37, 0.52, 0.3), [0.9, 0.93, 0.12]),
-  layout('triptych3', 'Sunset Triptych', 'Three leaning towers of a postcard, lettering across the foot.', [
-    ...row(TOP, FOOT, [[0.34, 0.31], [0.68, 0.655]]),
-  ], zone(0.05, 0.66, 0.9, 0.22), [0.9, 0.08, 0.13]),
   layout('hero-strips', 'Hero + 3 Strips', 'A widescreen hero over three tilted strips.', [
     ...row(TOP, [0.66, 0.7]),
     ...row([0.66, 0.7], FOOT, [[0.34, 0.32], [0.67, 0.69]]),
@@ -139,4 +141,21 @@ export function panelAt(geometry, x, y) {
     }
     return inside;
   }) ?? null;
+}
+
+// How a single photo is sliced across a layout (1-Photo Auto-Slice): every cut gets a role from
+// its shape on the cover. The largest cut is the hero and frames the subject at a medium shot,
+// tall cuts take a close-up, very wide strips take the wide establishing view, and the rest
+// zoom into the photo's own strongest details, so one picture reads as a sequence of shots.
+export function panelRoles(layout, width, height) {
+  const { panels } = buildGeometry(layout, width, height);
+  const areas = panels.map((p) => p.box.w * p.box.h);
+  const hero = areas.indexOf(Math.max(...areas));
+  return panels.map((p, i) => {
+    const aspect = p.box.w / Math.max(1, p.box.h);
+    if (i === hero) return 'hero';
+    if (aspect < 0.8) return 'close';
+    if (aspect > 2.3) return 'wide';
+    return 'detail';
+  });
 }

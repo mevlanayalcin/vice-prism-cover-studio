@@ -1,14 +1,17 @@
 // Studio wiring: builds the rails, loads the eight sample photos and the user's own, keeps the
-// controls, history and canvas in sync, and exports exact-size covers. The first load is this
+// controls, history and canvas in sync, and exports exact-size covers. Three steps make a cover:
+// add photos (Multi-photo, or 1-Photo Auto-Slice across every cut), tune the panels, look and
+// caption on the live canvas (drag a panel to pan, drag the title to move it, scroll to zoom),
+// then export a PNG at 1080 x 1080, 1080 x 1350 or 1920 x 1080. The first load is this
 // shell; the renderer and photo framing stream in with import() at boot, the exporter, quick
 // covers and showcase on first use. ?shot=export shows nothing but the exported cover PNG.
 
 import { buildGeometry, layoutById, LAYOUTS, panelAt, tracePanel } from './layouts.js';
-import { FONT_STYLE_OPTIONS, FX_DEFAULTS, FX_META, GRADES, gradeById, swatchCss, TEXT_POSITIONS } from './looks.js';
-import { assignMany, assignSource, createHistory, createState, mixSources, resetPanel, setLayout, setSize, SIZES, sizeOf, SOURCE_IDS, STICKERS, swapPanels } from './editor-state.js';
+import { EDITIONS, FONT_STYLE_OPTIONS, FX_DEFAULTS, FX_META, GRADES, gradeById, swatchCss, TEXT_POSITIONS } from './looks.js';
+import { assignMany, assignSource, createHistory, createState, DEFAULT_TITLE, mixSources, resetPanel, setLayout, setSize, SIZES, sizeOf, SOURCE_IDS, STICKERS, swapPanels } from './editor-state.js';
 
 const $ = (id) => document.getElementById(id);
-const [poster, overlay, stage, posterWrap, boxView, fillAll, compare] = ['poster', 'overlay', 'stage', 'poster-wrap', 'box-view', 'fill-all', 'compare'].map($);
+const [poster, overlay, stage, posterWrap, boxView] = ['poster', 'overlay', 'stage', 'poster-wrap', 'box-view'].map($);
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const onClick = (id, fn) => ($(id).onclick = fn);
 const assets = new Map();
@@ -27,7 +30,8 @@ let swapFrom = null;
 let busy = false;
 let format = 'png';
 let view = 'edit';
-let split = 0.5;
+let before = null; // the live Before / After split on the main canvas, or null when off
+const slicing = () => state.mode === 'slice';
 const timers = {};
 
 const setStatus = (text) => ($('status').textContent = text);
@@ -48,11 +52,12 @@ function dismissToast() {
   later('toast', 180, () => (toast.hidden = true));
 }
 
-function showToast({ name, width, height, bytes }) {
+function showToast({ name, width, height, bytes, pixels }) {
   const toast = $('export-toast');
   if (!toast) return;
   $('toast-name').textContent = name;
-  $('toast-meta').textContent = `${width} × ${height} · ${Math.max(1, Math.round(bytes / 1024))} KB`;
+  const real = pixels ?? { width, height };
+  $('toast-meta').textContent = `${real.width} × ${real.height} px in the file · ${Math.max(1, Math.round(bytes / 1024))} KB`;
   toast.hidden = false;
   toast.classList.remove('is-in');
   void toast.offsetWidth; // restart the entrance animation on a repeat export
@@ -78,12 +83,16 @@ function rail(id, items, cls, paint, pick) {
 const loadImage = (src) => new Promise((resolve, reject) => Object.assign(new Image(), { onload: (e) => resolve(e.target), onerror: () => reject(new Error(`could not load ${src}`)), src }));
 
 async function loadSamples() {
-  const { PHOTO_SAMPLES } = await load('subjects');
+  const { PHOTO_SAMPLES, detectDetails } = await load('subjects');
   await Promise.all(PHOTO_SAMPLES.map(async (s) => {
     const image = await loadImage(new URL(`../samples/${s.id}.jpg`, import.meta.url).href);
-    assets.set(s.id, { ...s, image, version: 1 });
+    assets.set(s.id, { ...s, image, version: 1, details: detectDetails(image, s.subject) });
   }));
 }
+
+// Places one photo: on the selected panel in Multi-photo mode, across every cut (each with the
+// shot its shape asks for, extra cuts zoomed on the photo's own details) in 1-Photo Auto-Slice.
+const place = (id) => assignSource(state, id, { all: slicing(), details: assets.get(id)?.details ?? [] });
 
 async function ensureFonts() {
   try {
@@ -115,7 +124,7 @@ function schedule(quality = 'preview') {
 function draw(quality = 'preview') {
   if (!renderer) return;
   const { width, height } = sizeOf(state);
-  renderer.renderPoster(poster, { width, height, state, assets, quality, record: true });
+  renderer.renderPoster(poster, { width, height, state, assets, quality, record: true, before });
   drawOverlay();
   if (view === 'box') later('box', quality === 'draft' ? 220 : 0, refreshBox);
 }
@@ -152,16 +161,6 @@ function fitPoster() {
   const k = Math.min(Math.max(160, rect.width - 28) / width, Math.max(160, rect.height - 40) / height);
   posterWrap.style.width = `${Math.round(width * k)}px`;
   posterWrap.style.height = `${Math.round(height * k)}px`;
-}
-
-function refreshCompare(delay = 0) {
-  later('compare', delay, () => {
-    const panel = active();
-    const asset = panel && assets.get(panel.source);
-    if (!renderer || !asset) return;
-    renderer.paintCompare(compare, asset, gradeById(panel.gradeOverride !== 'global' ? panel.gradeOverride : state.grade), state.fx, split);
-    $('compare-note').textContent = `${asset.label} → GTA paint`;
-  });
 }
 
 function commit() {
@@ -211,8 +210,10 @@ function buildRails() {
     b.dataset.layout = l.id;
     b.append(make('canvas'), make('span', '', `${l.name}`));
   }, (l) => {
+    const source = active()?.source;
     setLayout(state, l.id);
     state.activePanel = 0;
+    if (slicing() && source) place(source);
     refresh(`${l.name}: ${l.panels.length} panels, each photo framed on its subject.`, true);
   });
   rail('size-grid', SIZES, 'size-btn', (b, s) => {
@@ -245,15 +246,26 @@ function buildRails() {
       input.nextSibling.textContent = input.value;
       schedule('draft');
     };
-    input.onchange = () => (refresh(), refreshCompare());
+    input.onchange = () => refresh();
     return row;
   }));
   const options = (id, list) => ($(id).innerHTML = list.map((o) => `<option value="${o.id}">${o.label ?? o.name}</option>`).join(''));
   options('font-select', FONT_STYLE_OPTIONS);
+  $('edition-list').replaceChildren(...EDITIONS.map((value) => Object.assign(make('option'), { value })));
   options('position-select', TEXT_POSITIONS);
   options('panel-grade', [{ id: 'global', label: 'Cover grade' }, ...GRADES]);
   $('font-select').onchange = (e) => refresh(`${FONT_STYLE_OPTIONS.find((o) => o.id === (state.fontStyle = e.target.value)).label} lettering.`);
   $('position-select').onchange = (e) => refresh(`Title: ${TEXT_POSITIONS.find((o) => o.id === (state.textPosition = e.target.value)).label}.`);
+  for (const [id, key, unit] of [['title-scale', 'scale', 100], ['title-tilt', 'tilt', 1]]) {
+    $(id).oninput = (e) => {
+      state.title = { ...DEFAULT_TITLE, ...state.title, [key]: e.target.value / unit };
+      syncTitle();
+      schedule('draft');
+    };
+    $(id).onchange = () => refresh(`Title ${key === 'scale' ? `size ${Math.round(state.title.scale * 100)}%` : `tilt ${state.title.tilt}°`}.`);
+  }
+  onClick('title-reset', () => refresh('Title back to its face-safe spot.', (state.title = { ...DEFAULT_TITLE }) && false));
+  for (const b of $('mode-row').children) b.onclick = () => setMode(b.dataset.mode);
   for (const [id, key] of Object.entries(CAPTION_FIELDS)) {
     $(id).oninput = (e) => {
       state.caption[key] = e.target.value;
@@ -268,8 +280,27 @@ const refreshLayoutThumbs = () => {
 };
 
 function placeSource(id) {
-  assignSource(state, id, { all: fillAll.checked });
-  refresh(fillAll.checked ? `${labelOf(id)} fills all ${state.panels.length} panels, each with its own shot.` : `${labelOf(id)} → panel ${state.activePanel + 1}.`);
+  place(id);
+  refresh(slicing() ? `${labelOf(id)} auto-sliced into ${state.panels.length} panels: hero, close-ups and zoomed details.` : `${labelOf(id)} → panel ${state.activePanel + 1}.`);
+}
+
+function setMode(mode) {
+  state.mode = mode === 'slice' ? 'slice' : 'multi';
+  const source = active()?.source;
+  if (slicing() && source) {
+    place(source);
+    return refresh(`1-Photo Auto-Slice: ${labelOf(source)} cut into ${state.panels.length} shots.`);
+  }
+  if (!slicing()) setLayout(state, state.layout);
+  refresh('Multi-photo: every panel takes its own photo.');
+}
+
+function syncTitle() {
+  const t = { ...DEFAULT_TITLE, ...state.title };
+  $('title-scale').value = Math.round(t.scale * 100);
+  $('title-scale-out').textContent = `${Math.round(t.scale * 100)}%`;
+  $('title-tilt').value = t.tilt;
+  $('title-tilt-out').textContent = `${t.tilt}°`;
 }
 
 function buildGallery() {
@@ -305,6 +336,9 @@ function syncAll() {
   mark('grade-list', 'grade', (v) => v === state.grade);
   mark('sticker-list', 'sticker', (v) => !!state.stickers[v], 'on');
   mark('format-row', 'format', (v) => v === format);
+  mark('mode-row', 'mode', (v) => v === state.mode);
+  $('before-btn').classList.toggle('on', before != null);
+  syncTitle();
   const dims = `${size.width} × ${size.height}`;
   const text = {
     'layout-name': layout.name, 'grade-name': grade.name, 'size-note': `${size.ratio} · ${size.label}`, 'stage-size': `${dims} px`,
@@ -338,7 +372,6 @@ function syncPanel() {
   $('flip-btn').classList.toggle('on', !!panel.flip);
   $('shot-select').value = panel.shot ?? 'medium';
   $('panel-grade').value = panel.gradeOverride || 'global';
-  refreshCompare(120);
 }
 
 // A manual edit starts from the crop the smart framing chose, so nothing jumps.
@@ -355,8 +388,32 @@ function eventPanel(event) {
   return panelAt(geometry(overlay.width, overlay.height), ((event.clientX - rect.left) / rect.width) * overlay.width, ((event.clientY - rect.top) / rect.height) * overlay.height);
 }
 
+// Where a pointer event lands in cover pixels.
+function coverPoint(event) {
+  const rect = overlay.getBoundingClientRect();
+  return { x: ((event.clientX - rect.left) / rect.width) * overlay.width, y: ((event.clientY - rect.top) / rect.height) * overlay.height };
+}
+
+function onTitle(event) {
+  const r = renderer?.lettering.rect;
+  const { x, y } = coverPoint(event);
+  return r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+}
+
 function bindCanvas() {
   overlay.onpointerdown = (event) => {
+    const point = coverPoint(event);
+    if (before != null && Math.abs(point.x / overlay.width - before) < 0.02) {
+      drag = { id: event.pointerId, split: true };
+      overlay.setPointerCapture(event.pointerId);
+      return;
+    }
+    if (swapFrom == null && onTitle(event)) {
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, title: true, moved: false };
+      overlay.setPointerCapture(event.pointerId);
+      overlay.classList.add('dragging');
+      return;
+    }
     const panel = eventPanel(event);
     if (!panel) return;
     const swapping = swapFrom != null;
@@ -367,8 +424,21 @@ function bindCanvas() {
     overlay.classList.add('dragging');
   };
   overlay.onpointermove = (event) => {
-    if (event.pointerId !== drag?.id) return;
+    if (event.pointerId !== drag?.id) {
+      overlay.classList.toggle('over-title', !drag && onTitle(event));
+      return;
+    }
     const rect = overlay.getBoundingClientRect();
+    if (drag.split) {
+      before = clamp01(coverPoint(event).x / overlay.width);
+      return schedule('draft');
+    }
+    if (drag.title) {
+      const t = { ...DEFAULT_TITLE, ...state.title };
+      state.title = { ...t, dx: t.dx + (event.clientX - drag.x) / rect.width, dy: t.dy + (event.clientY - drag.y) / rect.height };
+      Object.assign(drag, { x: event.clientX, y: event.clientY, moved: true });
+      return schedule('draft');
+    }
     const panel = state.panels[drag.panel];
     const plan = takeOver(panel, drag.panel) ?? { tw: 1, sw: 1, scale: 1, th: 1, sh: 1 };
     const { box } = geometry(overlay.width, overlay.height).panels[drag.panel];
@@ -384,12 +454,22 @@ function bindCanvas() {
   };
   overlay.onpointerup = overlay.onpointercancel = (event) => {
     if (event.pointerId !== drag?.id) return;
-    const { moved } = drag;
+    const { moved, title, split: splitting } = drag;
     drag = null;
     overlay.classList.remove('dragging');
-    if (moved) refresh(`Panel ${state.activePanel + 1} reframed: the crop is kept per panel.`);
+    if (splitting) return draw('preview');
+    if (moved) refresh(title ? 'Title moved: it stays inside the frame at every post size.' : `Panel ${state.activePanel + 1} reframed: the crop is kept per panel.`);
   };
   overlay.addEventListener('wheel', (event) => {
+    if (onTitle(event)) {
+      // scrolling over the title sizes it instead of zooming the panel under it
+      event.preventDefault();
+      const t = { ...DEFAULT_TITLE, ...state.title };
+      state.title = { ...t, scale: Math.min(1.6, Math.max(0.5, t.scale * Math.exp(-event.deltaY * 0.001))) };
+      syncTitle();
+      schedule('draft');
+      return later('wheel', 220, () => refresh(`Title size ${Math.round(state.title.scale * 100)}%.`));
+    }
     const panel = eventPanel(event);
     if (panel) state.activePanel = panel.index;
     const cfg = active();
@@ -401,19 +481,6 @@ function bindCanvas() {
     schedule('draft');
     later('wheel', 220, () => refresh(`Panel ${state.activePanel + 1} zoom ${cfg.zoom.toFixed(2)}×.`));
   }, { passive: false });
-  let comparing = false;
-  const slide = (event) => {
-    const r = compare.getBoundingClientRect();
-    split = Math.max(0.05, Math.min(0.95, (event.clientX - r.left) / r.width));
-    refreshCompare();
-  };
-  compare.onpointerdown = (event) => {
-    comparing = true;
-    compare.setPointerCapture(event.pointerId);
-    slide(event);
-  };
-  compare.onpointermove = (event) => comparing && slide(event);
-  compare.onpointerup = () => (comparing = false);
 }
 
 // Selected-panel crop controls: shot, grade, zoom, rotate, flip, reset and the swap arming.
@@ -443,7 +510,15 @@ function bindPanelControls() {
     drawOverlay();
     setStatus(swapFrom != null ? `Swap: pick the panel to trade with panel ${swapFrom + 1}.` : 'Swap cancelled.');
   });
-  fillAll.onchange = () => fillAll.checked && placeSource(active().source);
+  onClick('before-btn', () => toggleBefore());
+}
+
+// The live Before / After split on the main canvas: raw framed photos left of the divider.
+function toggleBefore(on = before == null) {
+  before = on ? 0.5 : null;
+  syncAll();
+  draw('preview');
+  setStatus(on ? 'Before / After: drag the divider on the canvas to compare the raw photos with the paint.' : 'Before / After off.');
 }
 
 // Export buttons, the PNG/JPG switch and the toast's own dismiss button.
@@ -487,6 +562,7 @@ function bindKeyboardShortcuts() {
       nudgeCrop(dx, dy);
     } else if (!typing && (key === '[' || key === ']')) pickPanel((state.activePanel + (key === ']' ? 1 : n - 1)) % n);
     else if (!typing && /^[1-9]$/.test(key) && +key <= n) pickPanel(key - 1);
+    else if (!typing && !command && key === 'b') toggleBefore();
   });
 }
 
@@ -510,7 +586,7 @@ function bindTools() {
 async function useFiles(list) {
   const files = [...(list ?? [])].filter((f) => f.type.startsWith('image/'));
   if (!files.length) return setStatus('That is not an image. Choose a JPG, PNG or WEBP.');
-  const { detectSubject } = await load('subjects');
+  const { detectSubject, detectDetails } = await load('subjects');
   const added = [];
   for (const file of files.slice(0, 12)) {
     const url = URL.createObjectURL(file);
@@ -518,7 +594,8 @@ async function useFiles(list) {
       const image = await loadImage(url);
       const id = `upload-${uploads.length + 1}`;
       const label = file.name.replace(/\.[^.]+$/, '').slice(0, 22) || 'Your photo';
-      assets.set(id, { id, label, note: 'your photo', image, version: 1, subject: detectSubject(image) });
+      const subject = detectSubject(image);
+      assets.set(id, { id, label, note: 'your photo', image, version: 1, subject, details: detectDetails(image, subject) });
       uploads.unshift(id);
       added.push(id);
     } catch {
@@ -528,11 +605,15 @@ async function useFiles(list) {
     }
   }
   if (!added.length) return;
-  if (added.length === 1) assignSource(state, added[0], { all: fillAll.checked });
-  else assignMany(state, added.reverse());
+  if (added.length === 1) place(added[0]);
+  else {
+    // several photos are a cast, so they always land one per panel
+    state.mode = 'multi';
+    assignMany(state, added.reverse());
+  }
   buildGallery();
   const first = labelOf(added[0]);
-  refresh(added.length > 1 ? `${added.length} photos placed from panel ${state.activePanel + 1} on.` : fillAll.checked ? `${first} fills all ${state.panels.length} panels, each with its own shot.` : `${first} → panel ${state.activePanel + 1}, framed on the face.`);
+  refresh(added.length > 1 ? `${added.length} photos placed from panel ${state.activePanel + 1} on.` : slicing() ? `${first} auto-sliced into ${state.panels.length} panels.` : `${first} → panel ${state.activePanel + 1}, framed on the face.`);
 }
 
 function bindPhoto() {
@@ -606,10 +687,10 @@ function triggerExport(size) {
   setStatus(`Painting ${target.width} × ${target.height} at full resolution…`);
   requestAnimationFrame(async () => {
     try {
-      const { width, height, bytes, name } = await exportNow(format, true, target.id);
-      window.__lastExport = { width, height, bytes, name, format };
+      const { width, height, bytes, name, pixels } = await exportNow(format, true, target.id);
+      window.__lastExport = { width, height, bytes, name, format, pixels };
       setStatus(`Exported ${name} · ${(bytes / 1048576).toFixed(2)} MB · ${width} × ${height}.`);
-      showToast({ name, width, height, bytes });
+      showToast({ name, width, height, bytes, pixels });
     } catch (error) {
       setStatus(`Export failed: ${error.message}`);
     } finally {
@@ -643,10 +724,15 @@ async function boot() {
   if (param('layout', LAYOUTS)) setLayout(state, params.get('layout'));
   if (param('size', SIZES)) setSize(state, params.get('size'));
   if (param('grade', GRADES)) state.grade = params.get('grade');
+  if (params.get('mode') === 'slice') {
+    state.mode = 'slice';
+    place(state.panels[0].source);
+  }
+  if (params.get('before')) before = clamp01(+params.get('before') || 0.5);
   const panel = +params.get('panel');
   if (panel >= 1 && panel <= state.panels.length) state.activePanel = panel - 1;
   window.__vp = {
-    state, assets, history, setFormat, setView, pickPanel, setDemo, useFiles,
+    state, assets, history, setFormat, setView, pickPanel, setDemo, useFiles, setMode, toggleBefore,
     swap: (a, b) => refresh(`Swapped panel ${swapPanels(state, a, b) && a + 1} with panel ${b + 1}.`),
     undo: () => travel(-1),
     redo: () => travel(1),

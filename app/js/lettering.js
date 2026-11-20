@@ -3,7 +3,9 @@
 // extrusion and a cast shadow in one of five finishes, an angled subtitle ribbon, and the small
 // box-art marks (17+ plate, VP sunset seal, barcode, optional edition band). The title zone is
 // chosen face-safe: on 'auto' it takes the layout's zone unless a framed face sits under it, and
-// then the candidate band that covers the least face area.
+// then the candidate band that covers the least face area. The user's title transform (drag
+// offset, size and tilt) moves the whole lockup, kicker and ribbon included, and is clamped so the
+// tilted block always stays inside the cover's frame.
 
 const TITLE_FONT = `'VP Display', 'Lato', 'Arial Black', 'Liberation Sans', sans-serif`;
 const TEXT_FONT = `'VP Text', 'Lato', 'Helvetica Neue', 'Liberation Sans', Arial, sans-serif`;
@@ -82,8 +84,9 @@ function drawTitle(ctx, geo, state, zone, grade) {
   const st = FONT_STYLES[state.fontStyle] ?? FONT_STYLES.chrome;
   const kicker = (state.caption.tagline || '').trim();
   const subtitle = (state.caption.subtitle || '').trim();
-  const kickH = kicker ? Math.min(zone.h * 0.12, geo.height * 0.032) : 0;
-  const subH = subtitle ? Math.min(zone.h * 0.2, geo.height * 0.055) : 0;
+  const grow = zone.scale ?? 1;
+  const kickH = kicker ? Math.min(zone.h * 0.12, geo.height * 0.032 * grow) : 0;
+  const subH = subtitle ? Math.min(zone.h * 0.2, geo.height * 0.055 * grow) : 0;
   const maxH = Math.max(geo.height * 0.06, zone.h - kickH - subH);
   const { lines, size } = titleLines(ctx, state.caption.title, zone.w, maxH, st);
   const lineGap = size * 0.88;
@@ -153,7 +156,7 @@ function drawTitle(ctx, geo, state, zone, grade) {
 }
 
 function drawKicker(ctx, text, zone, rect, h, grade) {
-  const size = clamp(h * 0.72, 9, 40);
+  const size = clamp(h * 0.72, 9, 56);
   ctx.save();
   font(ctx, 800, size, TEXT_FONT, 0.32);
   const label = text.toUpperCase();
@@ -193,7 +196,8 @@ function drawRibbon(ctx, geo, state, zone, rect, grade) {
   const text = (state.caption.subtitle || '').trim().toUpperCase();
   if (!text) return null;
   const { width: w, height: h } = geo;
-  const size = clamp(Math.min(h * 0.032, rect.size * 0.17), 11, 64);
+  const neon = (FONT_STYLES[state.fontStyle] ?? FONT_STYLES.chrome).finish === 'neon';
+  const size = clamp(Math.min(h * 0.032 * (zone.scale ?? 1), rect.size * 0.17), 11, 80);
   ctx.save();
   font(ctx, 900, size, TEXT_FONT, 0.2);
   const textW = ctx.measureText(text).width;
@@ -210,16 +214,33 @@ function drawRibbon(ctx, geo, state, zone, rect, grade) {
   ctx.fillStyle = 'rgba(6,1,12,0.85)';
   shape(s * 0.28, s * 0.32);
   ctx.fill();
-  ctx.fillStyle = gradient(ctx.createLinearGradient(x, 0, x + pw, 0), [[0, grade.accent], [1, grade.accent2]]);
-  shape(0, 0);
-  ctx.fill();
-  Object.assign(ctx, { strokeStyle: INK, lineWidth: Math.max(2, ph * 0.08), lineJoin: 'miter' });
-  ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.28)';
-  slant(ctx, [x + k, y, x + pw, y, x + pw - k * 0.18, y + ph * 0.18, x + k * 0.82, y + ph * 0.18]);
-  ctx.fill();
-  Object.assign(ctx, { fillStyle: '#12051c', textBaseline: 'middle', textAlign: 'center' });
-  ctx.fillText(text, x + pw / 2 + s * 0.1, y + ph / 2 + s * 0.06);
+  const sweep = gradient(ctx.createLinearGradient(x, 0, x + pw, 0), [[0, grade.accent], [1, grade.accent2]]);
+  if (neon) {
+    // a neon-sign ribbon: a dark glass plate with a glowing tube edge and lit italic lettering
+    ctx.fillStyle = 'rgba(8,4,24,0.92)';
+    shape(0, 0);
+    ctx.fill();
+    Object.assign(ctx, { strokeStyle: sweep, lineWidth: Math.max(2, ph * 0.08), shadowColor: grade.accent, shadowBlur: ph * 0.45, lineJoin: 'miter' });
+    ctx.stroke();
+    ctx.shadowBlur = ph * 0.2;
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = sweep;
+    shape(0, 0);
+    ctx.fill();
+    Object.assign(ctx, { strokeStyle: INK, lineWidth: Math.max(2, ph * 0.08), lineJoin: 'miter' });
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.28)';
+    slant(ctx, [x + k, y, x + pw, y, x + pw - k * 0.18, y + ph * 0.18, x + k * 0.82, y + ph * 0.18]);
+    ctx.fill();
+  }
+  // the lettering leans with the ribbon: a synthetic italic slant on the bold face
+  ctx.translate(x + pw / 2 + s * 0.1, y + ph / 2 + s * 0.06);
+  ctx.transform(1, 0, -0.2, 1, 0, 0);
+  Object.assign(ctx, { textBaseline: 'middle', textAlign: 'center' });
+  if (neon) Object.assign(ctx, { fillStyle: '#fff6fd', shadowColor: grade.accent2, shadowBlur: s * 0.7 });
+  else Object.assign(ctx, { fillStyle: '#12051c', shadowBlur: 0 });
+  ctx.fillText(text, 0, 0);
   ctx.restore();
   return { x, y, w: pw, h: ph };
 }
@@ -345,12 +366,56 @@ function sealSpot(geo, blocked, faces) {
   return { cx: x, cy: y, radius: R };
 }
 
+// The user's title transform applied to the resolved zone: scaled about its centre, moved by the
+// drag offset (fractions of the cover) and clamped so the tilted block stays inside the frame.
+export function placeTitleZone(geo, zone, t = {}) {
+  const scale = clamp(t.scale ?? 1, 0.5, 1.6);
+  const tilt = (clamp(t.tilt ?? 0, -15, 15) * Math.PI) / 180;
+  const m = Math.min(geo.width, geo.height) * 0.03;
+  let w = zone.w * scale;
+  let h = zone.h * scale;
+  const ext = (a, b) => [Math.abs(a * Math.cos(tilt)) + Math.abs(b * Math.sin(tilt)), Math.abs(a * Math.sin(tilt)) + Math.abs(b * Math.cos(tilt))];
+  let [ew, eh] = ext(w, h);
+  const fit = Math.min(1, (geo.width - m * 2) / ew, (geo.height - m * 2) / eh);
+  w *= fit;
+  h *= fit;
+  [ew, eh] = ext(w, h);
+  const cx = clamp(zone.x + zone.w / 2 + (t.dx ?? 0) * geo.width, m + ew / 2, geo.width - m - ew / 2);
+  const cy = clamp(zone.y + zone.h / 2 + (t.dy ?? 0) * geo.height, m + eh / 2, geo.height - m - eh / 2);
+  return { ...zone, x: cx - w / 2, y: cy - h / 2, w, h, scale: scale * fit, tilt, cx, cy };
+}
+
+const union = (rects) => {
+  const list = rects.filter(Boolean);
+  const x = Math.min(...list.map((r) => r.x));
+  const y = Math.min(...list.map((r) => r.y));
+  return { x, y, w: Math.max(...list.map((r) => r.x + r.w)) - x, h: Math.max(...list.map((r) => r.y + r.h)) - y };
+};
+
+// The axis-aligned box of a rect rotated by `a` round (cx, cy): what the seal and the drag test see.
+function rotatedBox(r, cx, cy, a) {
+  if (!a) return r;
+  const pts = [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]].map(([x, y]) => [cx + (x - cx) * Math.cos(a) - (y - cy) * Math.sin(a), cy + (x - cx) * Math.sin(a) + (y - cy) * Math.cos(a)]);
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+}
+
 export function renderLettering(ctx, geo, state, grade, stickers = {}, faces = []) {
   const unit = Math.min(geo.width, geo.height);
-  const zone = resolveTitleZone(geo, state, faces);
+  const zone = placeTitleZone(geo, resolveTitleZone(geo, state, faces), state.title);
   if (stickers.header) drawPlatformBand(ctx, geo, state, grade);
-  const rect = drawTitle(ctx, geo, state, zone, grade);
-  const ribbon = drawRibbon(ctx, geo, state, zone, rect, grade);
+  ctx.save();
+  if (zone.tilt) {
+    ctx.translate(zone.cx, zone.cy);
+    ctx.rotate(zone.tilt);
+    ctx.translate(-zone.cx, -zone.cy);
+  }
+  const title = drawTitle(ctx, geo, state, zone, grade);
+  const ribbon = drawRibbon(ctx, geo, state, zone, title, grade);
+  ctx.restore();
+  const block = union([title, ribbon, { x: title.x, y: title.y - title.size * 0.35, w: title.w, h: 1 }]);
+  const rect = { ...rotatedBox(block, zone.cx, zone.cy, zone.tilt), size: title.size };
   const m = unit * 0.032;
   if (stickers.age) {
     const h = unit * 0.1;
@@ -360,6 +425,6 @@ export function renderLettering(ctx, geo, state, grade, stickers = {}, faces = [
     const bw = unit * 0.115;
     drawBarcode(ctx, { x: geo.width - m - bw, y: geo.height - m - bw * 0.5, w: bw, h: bw * 0.5 });
   }
-  if (stickers.medallion) drawSeal(ctx, sealSpot(geo, [rect, ribbon], faces), state, grade);
+  if (stickers.medallion) drawSeal(ctx, sealSpot(geo, [rect], faces), state, grade);
   return { zone, rect, ribbon };
 }

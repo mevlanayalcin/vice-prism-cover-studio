@@ -3,7 +3,8 @@
 // photo): a head box runs from the top of the hair or hat to the chin, and a scene box holds the
 // whole vehicle with `lead` saying which way it faces, so it lands on a third with room ahead.
 // Uploads get the same kind of head box from a small skin-region detector run on the user's
-// own machine; a photo with no skin falls back to its strongest detail.
+// own machine; a photo with no skin falls back to its strongest detail. Every photo also gets a
+// short list of detail points (detectDetails) that 1-Photo Auto-Slice zooms its extra cuts into.
 
 const head = (x, y, w, h) => ({ kind: 'face', x, y, w, h });
 const scene = (x, y, w, h, lead = 0) => ({ kind: 'scene', x, y, w, h, lead });
@@ -83,4 +84,50 @@ export function detectSubject(image) {
     }
   }
   return ew ? scene(Math.min(0.8, Math.max(0.2, ex / ew / N)), Math.min(0.75, Math.max(0.25, ey / ew / N)), 0.4, 0.4) : null;
+}
+
+// The photo's strongest details, for the zoomed cuts of 1-Photo Auto-Slice: edge energy on a
+// 48 x 48 sample summed in 8 x 8 cells, the richest cells picked with non-maximum suppression,
+// away from the frame and from the cell that holds the subject (the hero cut already frames it).
+export function detectDetails(image, subject = null, count = 5) {
+  const N = 48;
+  const C = 8;
+  const c = Object.assign(document.createElement('canvas'), { width: N, height: N });
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(image, 0, 0, N, N);
+  let px;
+  try {
+    px = ctx.getImageData(0, 0, N, N).data;
+  } catch {
+    return [];
+  }
+  const l = (x, y) => {
+    const i = (y * N + x) * 4;
+    return px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11;
+  };
+  const cell = N / C;
+  const energy = new Float32Array(C * C);
+  for (let y = 1; y < N - 1; y++) {
+    for (let x = 1; x < N - 1; x++) {
+      const e = Math.abs(l(x + 1, y) - l(x - 1, y)) + Math.abs(l(x, y + 1) - l(x, y - 1));
+      energy[Math.floor(y / cell) * C + Math.floor(x / cell)] += e;
+    }
+  }
+  const points = [];
+  const taken = new Uint8Array(C * C);
+  const block = (cx, cy) => {
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (cx + dx >= 0 && cx + dx < C && cy + dy >= 0 && cy + dy < C) taken[(cy + dy) * C + cx + dx] = 1;
+  };
+  if (subject) block(Math.min(C - 1, Math.floor(subject.x * C)), Math.min(C - 1, Math.floor(subject.y * C)));
+  for (let k = 0; k < count; k++) {
+    let best = -1;
+    for (let j = 0; j < C * C; j++) {
+      const edge = j % C === 0 || j % C === C - 1 || j < C || j >= C * (C - 1);
+      if (!taken[j] && !edge && (best < 0 || energy[j] > energy[best])) best = j;
+    }
+    if (best < 0 || energy[best] <= 0) break;
+    points.push({ x: ((best % C) + 0.5) / C, y: (Math.floor(best / C) + 0.5) / C });
+    block(best % C, Math.floor(best / C));
+  }
+  return points;
 }

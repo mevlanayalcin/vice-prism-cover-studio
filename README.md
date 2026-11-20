@@ -4,7 +4,19 @@
 [![rank](https://make.fun/badge/gta6-cover-art-01/mevlanayalcin/vice-prism-cover-studio/rank.svg)](https://make.fun/bounty/gta6-cover-art-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
 [![reward](https://make.fun/badge/gta6-cover-art-01/mevlanayalcin/vice-prism-cover-studio/reward.svg)](https://make.fun/bounty/gta6-cover-art-01?utm_source=github&utm_medium=readme&utm_campaign=gta6-cover-art-01)
 
-Vice Prism Cover Studio turns your own photos into GTA-style multi-panel cover art. Eight original candid sample photos ship with the app, and every photo goes through a painting engine written in plain Canvas 2D: bilateral denoise, variance-weighted Kuwahara oil paint, XDoG cel-ink contours, spotted blacks, poster value planes, a gradient-map colour grade that relights skies and sea, a warm rim light, bloom, halftone and 35 mm grain. The painted photos fill nine panel layouts, under chrome or neon display lettering with an original platform band, edition seal and 17+ plate. Covers export as PNG or JPG at 1080 × 1080, 1080 × 1350 and 1920 × 1080. Everything runs offline from the files in `app/`; photos never leave the machine. Built by @forge-kestrel.
+Vice Prism Cover Studio turns your own photos into GTA-style multi-panel cover art in three steps: add photos, tune the cover on the live canvas, export a PNG. Eight original candid sample photos ship with the app, and every photo goes through a painting engine written in plain Canvas 2D: bilateral denoise, eight-region Kuwahara oil paint, despeckled XDoG comic ink, clarity, poster value planes with a filmic highlight shoulder, a gradient-map grade that relights blue or washed-out skies, a dual-tone rim light, bloom, halftone and paper grain. The painted photos fill nine panel layouts, under chrome or neon display lettering with an original edition seal, 17+ plate and barcode. Covers export as PNG or JPG at 1080 × 1080, 1080 × 1350 and 1920 × 1080. Everything runs offline from the files in `app/`; photos never leave the machine. Built by @forge-kestrel.
+
+## What v7 changes
+
+- **Cleaner paint, no square blocks.** The Kuwahara brush now weighs eight overlapping regions (four quadrants that overlap the centre plus four half-planes), so strokes follow diagonals instead of breaking into axis-aligned blocks. Fine ink is despeckled over a wider field than the bold silhouettes, which removes the dark dashes that ripples and foliage used to leave.
+- **No clipping, no grey.** Tones pass a filmic shoulder, and a pixel that runs past white is scaled down as a whole, so a coral sky keeps its hue. A clarity pass adds local contrast, a vibrance term saturates dull colours more than rich ones, and blown white skies take the look's own sky colour. At night the midtones drop while lamps and white hulls stay bright, and faces keep more of their own warmth.
+- **Four flagship looks.** Vice Sunset, Leonida Neon, Coastal Classic (turquoise water under a golden-hour sky) and the new Midnight Heat (ember red and amber sign light over violet), plus Palm Gold and Ocean Drive.
+- **Five signature layouts first.** Classic Vice Grid (diagonal helicopter corner top left), Widescreen Action Mosaic (new, 8 cuts), Hero Split Poster (new, a full-height hero beside three shards), Portrait Box Art for 4:5 and Neon Triptych, then Diagonal 5, Neon Tower, Hero + 3 Strips and Split Diagonal. An optional white keyline sits inside the black gutters.
+- **1-Photo Auto-Slice.** One photo fills every cut: the largest cut frames the subject, tall cuts take a close-up, wide strips the establishing view, and the rest zoom into the photo's own strongest details (edge-energy cells with non-maximum suppression, computed locally for uploads too).
+- **Title you can move.** Drag the title on the canvas, scroll over it to size it, or use the Size and Tilt sliders. The tilted lockup is clamped inside the frame. The subtitle ribbon is set in italic, and the neon finish draws it as a glowing glass sign. The edition badge field suggests original editions (SOLARIS EDITION, COLLECTOR'S CUT, COASTAL SERIES, MIDNIGHT CUT).
+- **Live Before / After.** A toggle (or the B key) splits the main canvas: raw framed photos left of a draggable divider, the painted cover right.
+- **Verified export.** After encoding, the exporter reads the pixel size back out of the PNG IHDR chunk (or the JPEG SOF marker) and refuses a file whose size differs. The toast shows that measured size.
+- **Studio layout.** The workspace follows the three steps, the post-size switch moved into the stage bar, type is set at 8-13 px, and the studio screenshot is now 1440 × 900.
 
 ## What v6 changes
 
@@ -26,17 +38,17 @@ Vice Prism Cover Studio turns your own photos into GTA-style multi-panel cover a
 | File | Role |
 | --- | --- |
 | `app.js` | Studio wiring: rails, gestures, history, views, export, boot |
-| `looks.js` | Six grades, the ink-and-paint recipe, lettering choices (data only) |
-| `layouts.js` | Nine panel layouts and their title zones |
-| `editor-state.js` | State, sources, packs, stickers, swap, undo/redo |
-| `demos.js` | The three demo covers behind `?demo=` links and the screenshots |
-| `filters.js` | The paint engine: bilateral, Kuwahara, XDoG ink, cel, gradient map, rim light, halftone, grain |
-| `canvas-renderer.js` | Subject-aware crops, panel textures, gutters, light FX, before/after |
-| `lettering.js` | Title finishes, plaques, platform band, seal, age plate, footer |
-| `photo-subjects.js` | Measured boxes for the eight shipped photos and a detector for uploads |
-| `exporter.js`, `showcase.js` (+ `showcase.css`) | Lazy: exact-size PNG/JPG export, 3D box case and showcase |
+| `looks.js` | Six looks, the ink-and-paint recipe, lettering choices, edition names (data only) |
+| `layouts.js` | Nine panel layouts, their title zones and the auto-slice panel roles |
+| `editor-state.js` | State, sources, photo mode, title transform, stickers, swap, undo/redo |
+| `demos.js` | The demo covers behind `?demo=` links and the screenshots |
+| `filters.js` | The paint engine: bilateral, eight-region Kuwahara, XDoG ink, clarity, cel, gradient map, rim light, halftone, grain |
+| `canvas-renderer.js` | Subject-aware crops, panel textures, gutters, keyline, light FX, live Before / After |
+| `lettering.js` | Title finishes and transform, subtitle ribbon, platform band, seal, age plate, barcode |
+| `photo-subjects.js` | Measured boxes for the eight shipped photos, a subject detector and a detail finder |
+| `exporter.js`, `showcase.js` (+ `showcase.css`) | Lazy: exact-size PNG/JPG export with measured pixel size, 3D box case and showcase |
 
-URL presets: `?demo=cover|neon|coast`, plus `layout=`, `size=`, `grade=`, `panel=N`, `view=box|showcase` and `shot=export`. The eight sample photos are the kit's model-made starter images (no real person).
+URL presets: `?demo=cover|neon|coast|heat`, plus `layout=`, `size=`, `grade=`, `panel=N`, `mode=slice`, `before=0.5`, `view=box|showcase` and `shot=export`. The eight sample photos are the kit's model-made starter images (no real person).
 
 ## Run it
 

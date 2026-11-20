@@ -1,5 +1,6 @@
 // Showcase and 3D collector box, loaded on demand. The showcase shows the finished cover at export
-// resolution with all three post sizes beside it (a click on a size card exports that size); the
+// resolution with all three post sizes beside it (a click on a size card exports that size, and
+// each card names its exact pixel size and how many photos the cover uses); the
 // box wraps the live cover onto a collector's case with a printed spine, built from CSS 3D
 // transforms over a copy of the poster canvas.
 
@@ -42,11 +43,13 @@ export function openShowcase({ state, sizes, renderCover, grade, layoutName, pan
   const size = sizes.find((s) => s.id === state.size) ?? sizes[0];
   const tall = size.height >= size.width;
   const title = (state.caption.title || 'VICE HORIZON').toUpperCase();
+  const photos = new Set(state.panels.map((p) => p.source)).size;
+  const cast = state.mode === 'slice' ? `1 photo auto-sliced into ${panels} panels` : `${panels} painted panels · ${photos} photo${photos === 1 ? '' : 's'}`;
   const root = el('div', `showcase ${tall ? 'is-tall' : 'is-wide'}`);
   root.setAttribute('role', 'dialog');
   root.setAttribute('aria-label', 'Cover showcase');
   const bar = el('header', 'sc-bar', `<span class="sc-brand"><i></i>VICE PRISM <b>Showcase</b></span>
-    <span class="sc-meta"><em>Export ready</em> ${size.width} × ${size.height} · PNG · ${panels} painted photos · ${esc(layoutName)} · ${esc(grade.name)}</span>
+    <span class="sc-meta"><em>Export ready</em> ${size.width} × ${size.height} · PNG · ${cast} · ${esc(layoutName)} · ${esc(grade.name)}</span>
     <span class="sc-actions"><button type="button" class="sc-export">↓ Export PNG</button><button type="button" class="sc-close">Close · Esc</button></span>`);
   const stage = el('div', 'sc-stage');
   const hero = el('figure', 'sc-hero');
@@ -64,7 +67,7 @@ export function openShowcase({ state, sizes, renderCover, grade, layoutName, pan
   stage.append(hero);
   if (tall) {
     const side = el('aside', 'sc-side');
-    side.append(buildBoxCase(cover, { title, grade, height: 330, spin: -30 }), el('div', 'sc-spec', `<b>${esc(title)}</b><span>${esc(state.caption.subtitle || '')}</span><em>Collector's box case · live 3D preview</em>`), strip);
+    side.append(buildBoxCase(cover, { title, grade, height: 330, spin: -30 }), el('div', 'sc-spec', `<b>${esc(title)}</b><span>${esc(state.caption.subtitle || '')}</span><em>${esc(state.caption.badge || "Collector's cut")} · live 3D box case</em>`), strip);
     stage.append(side);
   } else {
     const box = el('figure', 'sc-size sc-box');

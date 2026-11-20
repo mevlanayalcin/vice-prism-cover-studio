@@ -3,14 +3,16 @@
 //
 // The app is this repository's app/ folder: plain static files, no build step, no network
 // request. It paints eight original candid sample photos — and the user's own — into GTA-style
-// cover art on a Canvas 2D engine (bilateral denoise, variance-weighted Kuwahara oil paint, XDoG
-// cel-ink contours, poster value planes, gradient-map grade, rim light, halftone, grain), cuts
-// them into nine panel layouts, letters the cover and exports PNG or JPG at 1080 x 1080,
-// 1080 x 1350 or 1920 x 1080.
+// cover art on a Canvas 2D engine (bilateral denoise, eight-region Kuwahara oil paint, despeckled
+// XDoG comic ink, clarity, poster value planes with a filmic shoulder, gradient-map grade with sky
+// relight, dual-tone rim light, halftone, paper grain), cuts them into nine panel layouts (multi-
+// photo, or one photo auto-sliced into hero, close-up and detail cuts), letters the cover with a
+// draggable, sizable, tiltable title and exports PNG or JPG at 1080 x 1080, 1080 x 1350 or
+// 1920 x 1080, reading the real pixel size back out of the encoded file.
 //
 // The four screenshots are the app's own output: three true full-bleed covers straight from its
 // Canvas PNG exporter (?shot=export) at 16:9, 4:5 and 1:1, plus the live studio editor at
-// 1280 x 800. No UI bars sit over a cover shot.
+// 1440 x 900 with its Before / After split. No UI bars sit over a cover shot.
 //
 // This program is only the hand-in. It stages app/ and screenshots/ into the output directory,
 // writes dossier.json with the kit's buildDossier, and prints the gate-facing totals. Node
@@ -19,7 +21,7 @@
 //   MAKEFUN_OUTPUT_DIR=out node main.ts        # outside the grader, out stands in for /output
 
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-app.ts';
@@ -27,7 +29,7 @@ import { buildDossier } from './vendor/makefun-app.ts';
 const ENTRY = {
   competition: 'gta6-cover-art-01',
   app: 'Vice Prism Cover Studio',
-  version: '5.0.0',
+  version: '7.0.0',
   runtime: 'Canvas 2D, ES modules, zero dependencies',
 } as const;
 
@@ -106,6 +108,12 @@ const stagedShots = shotFiles(shotsSrc);
 if (stagedShots.length < 3 || stagedShots.length > SHOT_LIMITS.count) {
   fail(`screenshots/ must hold 3 or 4 images, found ${stagedShots.length}`);
 }
+
+// shots.json is the screenshot manifest the README and the captures follow: every entry it names
+// must be staged, and nothing staged may be missing from it.
+const manifest = JSON.parse(readFileSync(join(here, 'shots.json'), 'utf8')) as { name: string }[];
+const listed = manifest.map((shot) => shot.name).sort();
+if (listed.join('|') !== stagedShots.join('|')) fail(`shots.json lists ${listed.join(', ')} but screenshots/ holds ${stagedShots.join(', ')}`);
 
 // Write the whole output afresh: a stale file from an earlier run must never change the bytes
 // of the dossier a grader reads.

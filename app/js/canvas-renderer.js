@@ -1,9 +1,11 @@
 // The renderer: frames each photo in its panel around the head or the vehicle, runs the crop
 // through the GTA paint engine at the cover's own scale, cuts it into the inset panel with even
-// ink gutters and an optional sunset or neon inner bevel, then grain, light and the face-safe
-// lettering. One function draws the live preview and the export, so the PNG is what you see.
+// jet-black gutters, an optional crisp white keyline and an optional sunset or neon inner bevel,
+// then grain, light and the face-safe lettering. One function draws the live preview and the
+// export, so the PNG is what you see; the live Before / After split redraws the left part of
+// every panel from the raw framed photo.
 
-import { buildGeometry, layoutById, tracePanel } from './layouts.js';
+import { buildGeometry, insetPolygon, layoutById, tracePanel } from './layouts.js';
 import { FX_DEFAULTS, gradeById } from './looks.js';
 import { paintPanel } from './filters.js';
 import { renderLettering, resolveTitleZone } from './lettering.js';
@@ -13,8 +15,10 @@ export const GUTTER_INK = '#0a0a0d';
 const QUALITY_CAP = { draft: 420, preview: 860, export: 2400 };
 const MAX_ZOOM = 3;
 const textureCache = new Map();
-// framing[i] is the crop panel i was last drawn with, so a manual edit starts from it
+// framing[i] is the crop panel i was last drawn with, so a manual edit starts from it, and
+// lettering is where the title block was last drawn, so the studio can drag it
 export const framing = [];
+export const lettering = { rect: null, zone: null };
 
 const rgba = (hex, alpha) => {
   const n = Number.parseInt(hex.slice(1), 16);
@@ -111,7 +115,7 @@ function faceRect(subject, plan, box, tw, th, flip) {
   return { x: box.x + (cx - w / 2) * k, y: box.y + (cy - h / 2) * k, w: w * k, h: h * k };
 }
 
-function panelTexture(asset, cfg, box, grade, fx, cap, seed, light, coverUnit) {
+function panelTexture(asset, cfg, box, grade, fx, cap, seed, light, coverUnit, raw = false) {
   const [sw, sh] = sizeOfSource(asset);
   if (!sw || !sh) return null;
   const ratio = Math.min(1, cap / Math.max(box.w, box.h, 1));
@@ -120,13 +124,13 @@ function panelTexture(asset, cfg, box, grade, fx, cap, seed, light, coverUnit) {
   const crop = { ...cfg, subject: asset.subject ?? null };
   const plan = planCrop(sw, sh, crop, tw, th);
   const face = faceRect(crop.subject, plan, box, tw, th, cfg.flip);
-  const key = [asset.id, asset.version ?? 1, cfg.shot, cfg.zoom.toFixed(3), cfg.focusX.toFixed(3), cfg.focusY.toFixed(3), (cfg.rotate ?? 0).toFixed(2), cfg.flip ? 1 : 0, cfg.avoid ? `${cfg.avoid.top.toFixed(2)}-${cfg.avoid.bottom.toFixed(2)}` : '', cfg.manualFocus ? 1 : 0, grade.id, ...Object.values(fx).map((v) => v.toFixed(2)), tw, th, seed, light].join('|');
+  const key = [asset.id, asset.version ?? 1, cfg.shot, cfg.zoom.toFixed(3), cfg.focusX.toFixed(3), cfg.focusY.toFixed(3), (cfg.rotate ?? 0).toFixed(2), cfg.flip ? 1 : 0, cfg.avoid ? `${cfg.avoid.top.toFixed(2)}-${cfg.avoid.bottom.toFixed(2)}` : '', cfg.manualFocus ? 1 : 0, grade.id, ...Object.values(fx).map((v) => v.toFixed(2)), tw, th, seed, light, raw ? 'raw' : 'paint'].join('|');
   let canvas = textureCache.get(key);
   if (!canvas) {
     canvas = Object.assign(document.createElement('canvas'), { width: tw, height: th });
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     drawSource(ctx, asset.image, plan, tw, th, cfg.flip);
-    try {
+    if (!raw) try {
       ctx.putImageData(paintPanel(ctx.getImageData(0, 0, tw, th), { grade, fx, seed, light, unit: coverUnit * ratio }), 0, 0);
     } catch {
       // a tainted canvas keeps the plain framed photo
@@ -157,7 +161,7 @@ function drawSkyFallback(ctx, { x, y, w, h }, grade) {
   ctx.restore();
 }
 
-function drawPanel(ctx, { points, box }, texture, grade, unit, bevel) {
+function drawPanel(ctx, { points, box }, texture, grade, unit, { bevel, keyline }) {
   const fill = (style) => {
     ctx.fillStyle = style;
     ctx.fillRect(box.x, box.y, box.w, box.h);
@@ -179,6 +183,46 @@ function drawPanel(ctx, { points, box }, texture, grade, unit, bevel) {
     ctx.stroke();
   }
   ctx.restore();
+  if (keyline) {
+    // the collector's keyline: a hairline of paper white set just inside the black gutter
+    const w = Math.max(1.5, unit * 0.0032);
+    tracePanel(ctx, insetPolygon(points, 1e9, 1e9, unit * 0.006 + w / 2, 0));
+    Object.assign(ctx, { lineWidth: w, strokeStyle: 'rgba(255,250,242,0.92)', lineJoin: 'miter' });
+    ctx.stroke();
+  }
+}
+
+// Before / After: the raw framed photo over the left `split` of the cover, a divider and labels.
+function drawBefore(ctx, geo, raws, split, unit) {
+  const sx = Math.round(geo.width * split);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, sx, geo.height);
+  ctx.clip();
+  for (const panel of geo.panels) {
+    const tex = raws[panel.index];
+    if (!tex) continue;
+    ctx.save();
+    tracePanel(ctx, panel.points);
+    ctx.clip();
+    ctx.drawImage(tex, panel.box.x, panel.box.y, panel.box.w, panel.box.h);
+    ctx.restore();
+  }
+  ctx.restore();
+  const tag = Math.max(12, unit * 0.026);
+  Object.assign(ctx, { fillStyle: '#ffffff', shadowColor: 'rgba(0,0,0,0.7)', shadowBlur: unit * 0.01 });
+  ctx.fillRect(sx - Math.max(1.5, unit * 0.002), 0, Math.max(3, unit * 0.004), geo.height);
+  ctx.font = `900 ${tag}px 'VP Text', sans-serif`;
+  ctx.textBaseline = 'middle';
+  for (const [text, right] of [['BEFORE', true], ['AFTER', false]]) {
+    const tw = ctx.measureText(text).width + tag;
+    const x = right ? sx - tw - tag * 0.4 : sx + tag * 0.4;
+    ctx.fillStyle = right ? 'rgba(10,10,13,0.85)' : '#ff3b8d';
+    ctx.fillRect(x, unit * 0.04, tw, tag * 1.6);
+    ctx.fillStyle = right ? '#fff' : '#12051c';
+    ctx.fillText(text, x + tag / 2, unit * 0.04 + tag * 0.82);
+  }
+  ctx.shadowBlur = 0;
 }
 
 let noiseTile = null;
@@ -217,7 +261,7 @@ function titleRows(zone, box) {
   return wide && bottom > top && Math.max(top, 1 - bottom) > 0.3 ? { top, bottom } : null;
 }
 
-export function renderPoster(canvas, { width, height, state, assets, quality = 'preview', record = false }) {
+export function renderPoster(canvas, { width, height, state, assets, quality = 'preview', record = false, before = null }) {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d', { alpha: false });
@@ -231,22 +275,27 @@ export function renderPoster(canvas, { width, height, state, assets, quality = '
   const zone = resolveTitleZone(geo, state);
   ctx.fillRect(0, 0, width, height);
   if (record) framing.length = 0;
+  const raws = [];
   for (const panel of geo.panels) {
     const cfg = state.panels[panel.index];
     const panelGrade = cfg?.gradeOverride && cfg.gradeOverride !== 'global' ? gradeById(cfg.gradeOverride) : grade;
     const asset = cfg && assets.get(cfg.source);
     const light = panel.cx < width / 2 ? -1 : 1;
-    const tex = asset ? panelTexture(asset, { ...cfg, avoid: titleRows(zone, panel.box) }, panel.box, panelGrade, fx, QUALITY_CAP[quality] ?? 860, 11 + panel.index * 37, light, unit) : null;
+    const args = [{ ...cfg, avoid: titleRows(zone, panel.box) }, panel.box, panelGrade, fx, QUALITY_CAP[quality] ?? 860, 11 + panel.index * 37, light, unit];
+    const tex = asset ? panelTexture(asset, ...args) : null;
     if (tex?.face) faces.push(tex.face);
     if (record) framing[panel.index] = tex?.plan ?? null;
-    drawPanel(ctx, panel, tex?.canvas, panelGrade, unit, stickers.bevel);
+    if (asset && before != null) raws[panel.index] = panelTexture(asset, ...args, true)?.canvas;
+    drawPanel(ctx, panel, tex?.canvas, panelGrade, unit, stickers);
   }
+  if (before != null) drawBefore(ctx, geo, raws, Math.max(0.02, Math.min(0.98, before)), unit);
   ctx.save();
   Object.assign(ctx, { globalCompositeOperation: 'overlay', globalAlpha: 0.45, fillStyle: ctx.createPattern(grainTile(), 'repeat') });
   ctx.fillRect(0, 0, width, height);
   ctx.restore();
   if (stickers.flare) drawFlare(ctx, width, height, grade);
-  renderLettering(ctx, geo, state, grade, stickers, faces);
+  const placed = renderLettering(ctx, geo, state, grade, stickers, faces);
+  if (record) Object.assign(lettering, { rect: placed.rect, zone: placed.zone });
   canvas.dataset.faces = faces.length;
   return canvas;
 }
@@ -257,39 +306,4 @@ export function paintSourceThumb(canvas, asset, w, h) {
   const [sw, sh] = sizeOfSource(asset);
   if (sw) drawSource(canvas.getContext('2d'), asset.image, planCrop(sw, sh, { shot: 'medium', subject: asset.subject }, w, h), w, h, false);
   return canvas;
-}
-
-// The before/after widget: the raw photo on the left of `split`, the painted cover look on the
-// right, a divider with a handle, and the two labels.
-let compared = {};
-export function paintCompare(canvas, asset, grade, fx, split = 0.5) {
-  const { width: w, height: h } = canvas;
-  const key = [asset.id, asset.version, grade.id, w, h, ...Object.values(fx)].join('|');
-  if (compared.key !== key) {
-    const art = paintSourceThumb(document.createElement('canvas'), asset, w, h);
-    const actx = art.getContext('2d', { willReadFrequently: true });
-    actx.putImageData(paintPanel(actx.getImageData(0, 0, w, h), { grade, fx: { ...FX_DEFAULTS, ...fx }, unit: h * 2.4 }), 0, 0);
-    compared = { key, art, raw: paintSourceThumb(document.createElement('canvas'), asset, w, h) };
-  }
-  const { raw, art } = compared;
-  const ctx = canvas.getContext('2d');
-  const sx = Math.round(w * clamp(split, 0.05, 0.95));
-  ctx.drawImage(raw, 0, 0);
-  ctx.drawImage(art, sx, 0, w - sx, h, sx, 0, w - sx, h);
-  Object.assign(ctx, { fillStyle: '#fff', shadowColor: 'rgba(0,0,0,0.6)', shadowBlur: 6 });
-  ctx.fillRect(sx - 1.5, 0, 3, h);
-  ctx.beginPath();
-  ctx.arc(sx, h / 2, h * 0.09, 0, Math.PI * 2);
-  ctx.fill();
-  Object.assign(ctx, { shadowBlur: 0, fillStyle: '#0a0a0d', font: `900 ${h * 0.09}px 'VP Text', sans-serif`, textAlign: 'center', textBaseline: 'middle' });
-  ctx.fillText('‹ ›', sx, h / 2);
-  ctx.textAlign = 'left';
-  for (const [text, x, bg, ink] of [['RAW PHOTO', w * 0.03, 'rgba(10,10,13,0.82)', '#fff'], ['GTA PAINT', w * 0.97, grade.accent, '#0a0a0d']]) {
-    const tw = ctx.measureText(text).width + h * 0.1;
-    const left = x > w / 2 ? x - tw : x;
-    ctx.fillStyle = bg;
-    ctx.fillRect(left, h * 0.83, tw, h * 0.13);
-    ctx.fillStyle = ink;
-    ctx.fillText(text, left + h * 0.05, h * 0.9);
-  }
 }

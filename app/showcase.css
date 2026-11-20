@@ -1,5 +1,5 @@
 /* Showcase and 3D collector box, loaded with showcase.js on first use. Size cards are buttons:
-   a click exports that post size. */
+   a click exports that post size. Type sizes follow the studio's 9-13 px scale. */
 .box3d{position:relative;width:var(--w);height:var(--h);perspective:1400px}
 .box3d-case{position:absolute;inset:0;transform-style:preserve-3d}
 .box3d-face{position:absolute;backface-visibility:hidden}
@@ -20,11 +20,11 @@
 .sc-brand{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;letter-spacing:.2em}
 .sc-brand i{width:20px;height:18px;background:var(--hot);clip-path:polygon(50% 0,100% 100%,0 100%)}
 .sc-brand b{color:var(--gold);letter-spacing:.12em}
-.sc-meta{flex:1;text-align:center;font-size:9px;letter-spacing:.12em;color:#cdbfd2;font-weight:400;text-transform:uppercase}
+.sc-meta{flex:1;text-align:center;font-size:10px;letter-spacing:.12em;color:#cdbfd2;font-weight:400;text-transform:uppercase}
 .sc-meta em{color:#0a0a0d;background:#4ff0b8;padding:2px 6px;border-radius:4px;font-weight:900;margin-right:6px}
 .sc-actions{display:flex;gap:6px}
 .sc-actions .sc-export{background:var(--hot);color:#1a0411;border:0}
-.sc-actions button{text-transform:uppercase;border:1px solid var(--line-2);background:rgba(255,255,255,.05);border-radius:8px;padding:6px 11px;font-size:9px;font-weight:900;letter-spacing:.1em}
+.sc-actions button{text-transform:uppercase;border:1px solid var(--line-2);background:rgba(255,255,255,.05);border-radius:8px;padding:7px 12px;font-size:10px;font-weight:900;letter-spacing:.1em}
 .sc-stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px 18px}
 .sc-hero{margin:0;line-height:0;box-shadow:0 30px 80px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.12),0 0 120px rgba(255,59,141,.18)}
 .sc-hero canvas{display:block}
@@ -39,7 +39,7 @@ button.sc-size:hover{opacity:1;transform:translateY(-2px)}
 .sc-size canvas{height:64px;width:auto;display:block;box-shadow:0 6px 18px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.1)}
 .sc-size.on{opacity:1}
 .sc-size.on canvas{box-shadow:0 0 0 2px var(--accent),0 6px 18px rgba(0,0,0,.6)}
-.sc-size span{font-size:7.5px;letter-spacing:.1em;color:var(--muted)}
+.sc-size span{font-size:9px;letter-spacing:.1em;color:var(--muted)}
 .sc-size span b{color:#fff;margin-right:4px}
 .is-tall .sc-stage{flex-direction:row;gap:34px}
 .is-tall .sc-hero canvas{height:calc(100vh - 74px);width:auto}
@@ -47,4 +47,4 @@ button.sc-size:hover{opacity:1;transform:translateY(-2px)}
 .sc-spec{display:grid;gap:3px;text-align:center}
 .sc-spec b{font-size:16px;letter-spacing:.14em}
 .sc-spec span{text-transform:uppercase;font-size:10px;color:#ffd9a0;letter-spacing:.12em;font-weight:400}
-.sc-spec em{text-transform:uppercase;font-size:8px;color:var(--muted);letter-spacing:.12em;font-weight:400}
+.sc-spec em{text-transform:uppercase;font-size:9px;color:var(--muted);letter-spacing:.12em;font-weight:400}
