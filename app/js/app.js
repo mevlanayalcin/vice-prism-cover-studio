@@ -9,6 +9,8 @@ import { assignMany, assignSource, createHistory, createState, mixSources, reset
 
 const $ = (id) => document.getElementById(id);
 const [poster, overlay, stage, posterWrap, boxView, fillAll, compare] = ['poster', 'overlay', 'stage', 'poster-wrap', 'box-view', 'fill-all', 'compare'].map($);
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+const onClick = (id, fn) => ($(id).onclick = fn);
 const assets = new Map();
 const state = createState();
 const history = createHistory(state);
@@ -33,9 +35,30 @@ const labelOf = (id) => assets.get(id)?.label ?? id;
 const later = (key, ms, fn) => (clearTimeout(timers[key]), (timers[key] = setTimeout(fn, ms)));
 const load = (name) => (lazy[name] ??= MODULES[name]());
 const fmtName = () => (format === 'jpeg' ? 'JPG' : 'PNG');
+const NUDGE_STEP = 0.012;
 const active = () => state.panels[state.activePanel];
 const geometry = (w, h) => buildGeometry(layoutById(state.layout), w, h);
 const sourceIds = () => [...uploads, ...SOURCE_IDS].filter((id) => assets.has(id));
+
+// One small, self-dismissing card confirms what landed on disk: name, pixels and KB.
+function dismissToast() {
+  const toast = $('export-toast');
+  if (!toast || toast.hidden) return;
+  toast.classList.remove('is-in');
+  later('toast', 180, () => (toast.hidden = true));
+}
+
+function showToast({ name, width, height, bytes }) {
+  const toast = $('export-toast');
+  if (!toast) return;
+  $('toast-name').textContent = name;
+  $('toast-meta').textContent = `${width} × ${height} · ${Math.max(1, Math.round(bytes / 1024))} KB`;
+  toast.hidden = false;
+  toast.classList.remove('is-in');
+  void toast.offsetWidth; // restart the entrance animation on a repeat export
+  toast.classList.add('is-in');
+  later('toast', 3800, dismissToast);
+}
 
 function make(tag, cls = '', html = '') {
   const node = Object.assign(document.createElement(tag), { className: cls, innerHTML: html });
@@ -393,8 +416,8 @@ function bindCanvas() {
   compare.onpointerup = () => (comparing = false);
 }
 
-function bindTools() {
-  const tool = (id, fn) => ($(id).onclick = fn);
+// Selected-panel crop controls: shot, grade, zoom, rotate, flip, reset and the swap arming.
+function bindPanelControls() {
   $('panel-grade').onchange = (e) => refresh(`Panel ${state.activePanel + 1} grade: ${(active().gradeOverride = e.target.value)}.`);
   $('shot-select').onchange = (e) => {
     Object.assign(active(), { shot: e.target.value, manualFocus: false });
@@ -412,38 +435,74 @@ function bindTools() {
     schedule('draft');
   };
   $('zoom-range').onchange = $('rotate-range').onchange = () => refresh();
-  tool('flip-btn', () => refresh(`Panel ${state.activePanel + 1} ${(active().flip = !active().flip) ? 'flipped' : 'unflipped'}.`));
-  tool('reset-panel', () => refresh(`Panel ${resetPanel(state) && state.activePanel + 1} back to its smart crop.`));
-  tool('swap-btn', () => {
+  onClick('flip-btn', () => refresh(`Panel ${state.activePanel + 1} ${(active().flip = !active().flip) ? 'flipped' : 'unflipped'}.`));
+  onClick('reset-panel', () => refresh(`Panel ${resetPanel(state) && state.activePanel + 1} back to its smart crop.`));
+  onClick('swap-btn', () => {
     swapFrom = swapFrom == null ? state.activePanel : null;
     $('swap-btn').classList.toggle('on', swapFrom != null);
     drawOverlay();
     setStatus(swapFrom != null ? `Swap: pick the panel to trade with panel ${swapFrom + 1}.` : 'Swap cancelled.');
   });
-  tool('export-btn', () => triggerExport());
-  tool('quick-export', () => triggerExport());
-  tool('undo-btn', () => travel(-1));
-  tool('redo-btn', () => travel(1));
-  tool('fx-reset', () => {
-    state.fx = { ...FX_DEFAULTS };
-    refresh('Ink and paint back to the house recipe.');
-  });
-  tool('mix-btn', () => refresh(`Shuffled the photos across the panels${mixSources(state, sourceIds()) && '.'}`));
   fillAll.onchange = () => fillAll.checked && placeSource(active().source);
-  for (const b of document.querySelectorAll('.quick-btn')) b.onclick = () => setDemo(b.dataset.demo);
+}
+
+// Export buttons, the PNG/JPG switch and the toast's own dismiss button.
+function bindExportActions() {
+  onClick('export-btn', () => triggerExport());
+  onClick('quick-export', () => triggerExport());
+  onClick('toast-close', dismissToast);
   for (const b of $('format-row').children) b.onclick = () => setFormat(b.dataset.format);
-  for (const b of $('view-row').children) b.onclick = () => setView(b.dataset.view);
+}
+
+// One arrow press nudges the selected panel's crop; Shift takes a 5× step. Sliders and text
+// fields keep their native arrow behaviour.
+const nudgeLabel = (dx, dy) => `${dx ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up'} ${((Math.abs(dx) + Math.abs(dy)) * NUDGE_STEP).toFixed(2)}`;
+
+function nudgeCrop(dx, dy) {
+  const panel = active();
+  if (!panel) return;
+  takeOver(panel, state.activePanel);
+  panel.focusX = clamp01(panel.focusX + dx * NUDGE_STEP);
+  panel.focusY = clamp01(panel.focusY + dy * NUDGE_STEP);
+  schedule('draft');
+  later('nudge', 280, () => refresh(`Panel ${state.activePanel + 1} crop nudged ${nudgeLabel(dx, dy)}.`));
+}
+
+function bindKeyboardShortcuts() {
   window.addEventListener('keydown', (event) => {
-    const typing = /INPUT|SELECT/.test(event.target.tagName);
+    const element = event.target;
+    const typing = /INPUT|SELECT|TEXTAREA/.test(element.tagName) || element.isContentEditable;
     const key = event.key.toLowerCase();
     const n = state.panels.length;
-    if ((event.metaKey || event.ctrlKey) && (key === 'e' || (!typing && /^[zy]$/.test(key)))) {
+    const command = event.metaKey || event.ctrlKey;
+    if (command && (key === 'e' || (!typing && /^[zy]$/.test(key)))) {
       event.preventDefault();
       if (key === 'e') triggerExport();
       else travel(key === 'y' || event.shiftKey ? 1 : -1);
+    } else if (!typing && event.key.startsWith('Arrow') && !command && !event.altKey) {
+      const step = event.shiftKey ? 5 : 1;
+      const dx = event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0;
+      const dy = event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0;
+      event.preventDefault();
+      nudgeCrop(dx, dy);
     } else if (!typing && (key === '[' || key === ']')) pickPanel((state.activePanel + (key === ']' ? 1 : n - 1)) % n);
     else if (!typing && /^[1-9]$/.test(key) && +key <= n) pickPanel(key - 1);
   });
+}
+
+function bindTools() {
+  bindPanelControls();
+  bindExportActions();
+  bindKeyboardShortcuts();
+  onClick('undo-btn', () => travel(-1));
+  onClick('redo-btn', () => travel(1));
+  onClick('fx-reset', () => {
+    state.fx = { ...FX_DEFAULTS };
+    refresh('Ink and paint back to the house recipe.');
+  });
+  onClick('mix-btn', () => refresh(`Shuffled the photos across the panels${mixSources(state, sourceIds()) && '.'}`));
+  for (const b of document.querySelectorAll('.quick-btn')) b.onclick = () => setDemo(b.dataset.demo);
+  for (const b of $('view-row').children) b.onclick = () => setView(b.dataset.view);
 }
 
 // Reads every dropped or picked image on this machine, finds its subject and places it: one photo
@@ -550,6 +609,7 @@ function triggerExport(size) {
       const { width, height, bytes, name } = await exportNow(format, true, target.id);
       window.__lastExport = { width, height, bytes, name, format };
       setStatus(`Exported ${name} · ${(bytes / 1048576).toFixed(2)} MB · ${width} × ${height}.`);
+      showToast({ name, width, height, bytes });
     } catch (error) {
       setStatus(`Export failed: ${error.message}`);
     } finally {

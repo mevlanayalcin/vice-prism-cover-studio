@@ -124,7 +124,13 @@
 </aside>
 </main>
 
-<footer class="statusbar"><i aria-hidden="true"></i><span id="status" role="status">All processing local — your photos never leave this machine.</span><span class="keys" aria-hidden="true">1–9 panels · [ ] step · Ctrl Z undo · Ctrl E export</span></footer>
+<footer class="statusbar"><i aria-hidden="true"></i><span id="status" role="status">All processing local — your photos never leave this machine.</span><span class="keys" aria-hidden="true">1–9 panels · arrows nudge · Shift ×5 · [ ] step · Ctrl Z undo · Ctrl E export</span></footer>
+
+<div id="export-toast" class="toast" role="status" aria-live="polite" hidden>
+<span class="toast-check" aria-hidden="true">✓</span>
+<span class="toast-copy"><strong id="toast-name">cover.png</strong><em id="toast-meta">1920 × 1080 · 0 KB</em></span>
+<button id="toast-close" class="toast-close" type="button" title="Dismiss" aria-label="Dismiss export notice">×</button>
+</div>
 </div>
 <script type="module" src="./js/app.js"></script>
 </body>

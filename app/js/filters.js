@@ -25,32 +25,62 @@ const isSkin = (r, g, b) => {
   const l = r * 0.299 + g * 0.587 + b * 0.114;
   return l > 46 && l < 236 && r > 78 && r - g >= 12 && r - g <= 112 && r - b >= 22 && g >= b * 0.82 && r > b;
 };
-const ramp = (stops) => {
-  const pal = stops.map(rgbOf);
-  return (t) => {
-    const x = clamp01(t) * (pal.length - 1);
-    const k = Math.min(pal.length - 2, Math.floor(x));
-    const f = x - k;
-    const a = pal[k];
-    const b = pal[k + 1];
-    return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
-  };
-};
 const tintMul = (c) => {
   const v = c.map((x) => x / 255);
   const l = Math.max(0.05, lumaOf(v));
   return v.map((x) => x / l);
 };
 
+// Paint sliders arrive from the UI as 0-100 values divided by 100; clamp every one so a
+// half-written state or a hand-set __vp.fx value can never push the engine out of range.
+export function normalizePaintOptions(fx = FX_DEFAULTS) {
+  return {
+    paint: clamp01(fx.paint ?? FX_DEFAULTS.paint),
+    ink: clamp01(fx.ink ?? FX_DEFAULTS.ink),
+    bands: clamp01(fx.bands ?? 0.5),
+    amt: clamp01(fx.grade ?? FX_DEFAULTS.grade),
+    halftone: clamp01(fx.halftone ?? 0),
+    grain: clamp01(fx.grain ?? 0),
+  };
+}
+
+// A grade's tone curve is its stop table read as a LUT: `at(t)` walks the control points and
+// interpolates in the same linear space the renderer always used, so defaults stay byte-exact.
+export function buildToneCurveLut(stops) {
+  const palette = stops.map(rgbOf);
+  const last = palette.length - 1;
+  const at = (t) => {
+    const x = clamp01(t) * last;
+    const k = Math.min(last - 1, Math.floor(x));
+    const f = x - k;
+    const a = palette[k];
+    const b = palette[k + 1];
+    return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+  };
+  return { palette, at };
+}
+
+// XDoG edge pass: fine contours draw features, the wide scale the bold silhouettes, and the
+// bright side of the same edges carries the rim light. Pure mask work, no pixel writes.
+export function computeEdgeMask(g1, g2, g3, ink) {
+  const n = g1.length;
+  const lines = new Float32Array(n);
+  const rimMask = new Float32Array(n);
+  for (let p = 0; p < n; p++) {
+    const fine = (g2[p] - g1[p]) / (0.06 + g2[p]);
+    const bold = (g3[p] - g1[p]) / (0.06 + g3[p]);
+    lines[p] = Math.max(smooth(0.028, 0.075, fine), smooth(0.11, 0.28, bold) * 0.85) * ink;
+    rimMask[p] = smooth(0.04, 0.2, (g1[p] - g3[p]) / (0.1 + g3[p]));
+  }
+  return { lines, rimMask };
+}
+
 export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, seed = 7, light = 1, unit: coverUnit } = {}) {
   const { data, width: w, height: h } = imageData;
   if (!w || !h) return imageData;
   const n = w * h;
   const unit = coverUnit || Math.min(w, h) * 1.6;
-  const paint = clamp01(fx.paint);
-  const ink = clamp01(fx.ink);
-  const bands = clamp01(fx.bands ?? 0.5);
-  const amt = clamp01(fx.grade);
+  const { paint, ink, bands, amt, halftone, grain } = normalizePaintOptions(fx);
 
   // Ink is traced on the denoised photo, before the paint, so contours follow the real shapes
   // and never the edges of brush blocks.
@@ -78,16 +108,8 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
   blurMask(skin, w, h, Math.max(1, Math.round(unit * 0.004)), 2);
 
   // XDoG: a pixel darker than its neighbourhood, relative to that neighbourhood's light, is ink.
-  // The fine scale draws features, the wide one the bold outer silhouettes; the bright side of
-  // the same edges carries the rim light.
-  const lines = new Float32Array(n);
-  const rimMask = new Float32Array(n);
-  for (let p = 0; p < n; p++) {
-    const fine = (g2[p] - g1[p]) / (0.06 + g2[p]);
-    const bold = (g3[p] - g1[p]) / (0.06 + g3[p]);
-    lines[p] = Math.max(smooth(0.028, 0.075, fine), smooth(0.11, 0.28, bold) * 0.85) * ink;
-    rimMask[p] = smooth(0.04, 0.2, (g1[p] - g3[p]) / (0.1 + g3[p]));
-  }
+  // The mask helper keeps the fine and wide scales side by side with their rim light.
+  const { lines, rimMask } = computeEdgeMask(g1, g2, g3, ink);
   blurMask(rimMask, w, h, Math.max(1, s), 1);
   // speckle filter: where ink would cover much of a neighbourhood (spray, foliage, fabric
   // print) it is texture, not contour, so it fades and only clean outlines stay
@@ -106,8 +128,8 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
   }
   blurMask(glow, w, h, Math.max(2, Math.round(unit * 0.018)), 2);
 
-  const palAt = ramp(grade.stops);
-  const skyAt = ramp(grade.sky);
+  const palAt = buildToneCurveLut(grade.stops).at;
+  const skyAt = buildToneCurveLut(grade.sky).at;
   const shadowMul = tintMul(grade.shadowTint);
   const highMul = tintMul(grade.highlightTint);
   const warm = rgbOf(grade.accent2);
@@ -215,20 +237,20 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
         b += (inkCol[2] - b) * k;
       }
 
-      if (fx.halftone > 0.01 && l < 0.55) {
+      if (halftone > 0.01 && l < 0.55) {
         const u = (x * 0.7071 - y * 0.7071) / dot;
         const v = (x * 0.7071 + y * 0.7071) / dot;
         const d = Math.hypot(u - Math.round(u), v - Math.round(v));
-        const a = clamp01((0.12 + (0.55 - l) * 0.7 - d) / 0.1) * fx.halftone * clamp01((0.55 - l) * 2.2) * 0.42;
+        const a = clamp01((0.12 + (0.55 - l) * 0.7 - d) / 0.1) * halftone * clamp01((0.55 - l) * 2.2) * 0.42;
         r *= 1 - a;
         g *= 1 - a;
         b *= 1 - a * 0.85;
       }
 
-      if (fx.grain > 0.01) {
+      if (grain > 0.01) {
         let hs = (x * 374761393 + y * 668265263 + seed * 1274126177) | 0;
         hs = ((hs ^ (hs >>> 13)) * 1274126177) | 0;
-        const k = 1 + ((((hs ^ (hs >>> 16)) >>> 0) % 1024) / 1023 - 0.5) * fx.grain * 0.12;
+        const k = 1 + ((((hs ^ (hs >>> 16)) >>> 0) % 1024) / 1023 - 0.5) * grain * 0.12;
         r *= k;
         g *= k;
         b *= k;
