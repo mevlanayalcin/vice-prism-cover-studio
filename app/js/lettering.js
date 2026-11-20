@@ -1,6 +1,9 @@
-// Poster lettering in Canvas 2D with shipped SIL OFL faces: a stacked title with a 3D extrusion, a
-// fat ink keyline and one of five finishes, a subtitle plaque, a tagline, a sunburst edition seal,
-// an original platform band, 17+ plate and footer. No game wordmark, rating mark or game typeface.
+// Cover lettering in Canvas 2D with the shipped SIL OFL faces (no game wordmark, rating mark or
+// game typeface): a kicker line, the display title with a heavy ink keyline, a stepped 3D
+// extrusion and a cast shadow in one of five finishes, an angled subtitle ribbon, and the small
+// box-art marks (17+ plate, VP sunset seal, barcode, optional edition band). The title zone is
+// chosen face-safe: on 'auto' it takes the layout's zone unless a framed face sits under it, and
+// then the candidate band that covers the least face area.
 
 const TITLE_FONT = `'VP Display', 'Lato', 'Arial Black', 'Liberation Sans', sans-serif`;
 const TEXT_FONT = `'VP Text', 'Lato', 'Helvetica Neue', 'Liberation Sans', Arial, sans-serif`;
@@ -9,11 +12,11 @@ const INK = '#0a0a0d';
 
 const style = (stack, weight, condense, tracking, skew, finish, depth) => ({ stack, weight, condense, tracking, skew, finish, depth });
 const FONT_STYLES = {
-  chrome: style(TITLE_FONT, 900, 0.84, -0.026, 0.07, 'chrome', 0.075),
-  neon: style(TITLE_FONT, 900, 0.74, 0.004, 0.04, 'neon', 0.05),
-  block: style(TITLE_FONT, 900, 0.84, -0.028, 0.055, 'sunset', 0.07),
-  riviera: style(EDITORIAL_FONT, 700, 0.96, -0.01, 0, 'riviera', 0.06),
-  heavy: style(TITLE_FONT, 900, 0.93, -0.018, 0.02, 'sunset', 0.04),
+  chrome: style(TITLE_FONT, 900, 0.86, -0.022, 0.08, 'chrome', 0.085),
+  neon: style(TITLE_FONT, 900, 0.8, 0.01, 0.05, 'neon', 0.06),
+  sunset: style(TITLE_FONT, 900, 0.86, -0.024, 0.06, 'sunset', 0.08),
+  riviera: style(EDITORIAL_FONT, 700, 0.96, -0.01, 0.02, 'riviera', 0.06),
+  heavy: style(TITLE_FONT, 900, 0.95, -0.016, 0.02, 'sunset', 0.05),
 };
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -30,131 +33,149 @@ const gradient = (g, stops) => {
   stops.forEach(([o, c]) => g.addColorStop(o, c));
   return g;
 };
-const accentBar = (ctx, x0, x1, grade) => gradient(ctx.createLinearGradient(x0, 0, x1, 0), [[0, grade.accent], [1, grade.accent2]]);
+const overlap = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+const faceCost = (rect, faces) => faces.reduce((s, f) => s + overlap(rect, f) / Math.max(1, f.w * f.h), 0);
 
 function titleLines(ctx, raw, maxW, maxH, st) {
   const words = (raw || 'VICE HORIZON').trim().toUpperCase().split(/\s+/).filter(Boolean).slice(0, 5);
   if (!words.length) words.push('VICE', 'HORIZON');
   let best = null;
+  ctx.save();
   for (let count = 1; count <= Math.min(3, words.length); count++) {
     const lines = [];
     for (let i = 0, at = 0; i < count; i++) {
       const take = Math.ceil((words.length - at) / (count - i));
       lines.push(words.slice(at, (at += take)).join(' '));
     }
-    ctx.save();
     font(ctx, st.weight, 100, st.stack, st.tracking);
     const widest = Math.max(...lines.map((line) => (ctx.measureText(line).width * st.condense) / 100));
-    ctx.restore();
-    const size = Math.min((maxH / (1 + 0.9 * (lines.length - 1) + 0.08 + st.depth)) * 0.99, (maxW / Math.max(0.08, widest + st.depth)) * 0.96);
-    if (!best || size > best.size + 0.5) best = { lines, size };
+    const size = Math.min(maxH / (1 + 0.88 * (lines.length - 1) + 0.1 + st.depth), (maxW / Math.max(0.08, widest + st.depth + 0.1)) * 0.97);
+    // a stacked title reads bigger than its point size: more lines win unless they shrink a lot
+    const score = size * Math.sqrt(lines.length);
+    if (!best || score > best.score * 1.04) best = { lines, size, score };
   }
+  ctx.restore();
   return best;
 }
 
-export function resolveTitleZone(geo, state) {
-  const { width: w, height: h } = geo;
-  const at = { center: [0.07, 0.33, 0.86, 0.3, 'center'], left: [0.055, 0.37, 0.66, 0.3, 'left'], band: [0.05, 0.655, 0.9, 0.235, 'left'] }[state.textPosition];
-  return at ? { x: w * at[0], y: h * at[1], w: w * at[2], h: h * at[3], align: at[4] } : geo.zones.title;
+const ZONES = { center: [0.06, 0.36, 0.88, 0.28, 'center'], top: [0.06, 0.035, 0.88, 0.25, 'center'], band: [0.06, 0.64, 0.88, 0.25, 'center'], left: [0.045, 0.3, 0.6, 0.36, 'left'] };
+const zoneRect = (geo, [x, y, w, h, align]) => ({ x: geo.width * x, y: geo.height * y, w: geo.width * w, h: geo.height * h, align });
+
+export function resolveTitleZone(geo, state, faces = []) {
+  if (ZONES[state.textPosition]) return zoneRect(geo, ZONES[state.textPosition]);
+  const own = geo.zones.title;
+  if (faceCost(own, faces) < 0.04) return own;
+  const options = [own, ...['center', 'band', 'top'].map((k) => zoneRect(geo, ZONES[k]))];
+  return options.reduce((best, z) => (faceCost(z, faces) < faceCost(best, faces) - 0.02 ? z : best), own);
 }
 
-function drawScrim(ctx, geo, title) {
-  const { width: w, height: h } = geo;
-  const top = Math.max(0, title.y - h * 0.06);
-  const bottom = Math.min(h, title.y + title.h + h * 0.05);
-  ctx.fillStyle = gradient(ctx.createLinearGradient(0, top, 0, bottom), [[0, 'rgba(7,2,12,0)'], [0.5, 'rgba(7,2,12,0.22)'], [1, 'rgba(6,1,10,0.08)']]);
-  ctx.fillRect(0, top, w, bottom - top);
-  const cx = title.x + title.w * (title.align === 'center' ? 0.5 : 0.36);
-  const cy = title.y + title.h * 0.5;
-  ctx.fillStyle = gradient(ctx.createRadialGradient(cx, cy, Math.min(title.w, title.h) * 0.1, cx, cy, Math.max(title.w, title.h) * 0.62), [[0, 'rgba(5,1,10,0.3)'], [1, 'rgba(5,1,10,0)']]);
-  ctx.fillRect(0, 0, w, h);
-}
-
-function finishOf(finish, grade, last) {
+function finishOf(finish, grade) {
   const a = grade.accent;
   const b = grade.accent2;
-  if (finish === 'chrome') return { stops: [[0, '#ffffff'], [0.3, '#ffe9c4'], [0.49, tint(b, 0.15)], [0.5, '#3b1450'], [0.62, tint(a, -0.1)], [0.86, tint(a, 0.35)], [1, '#fff0d8']], extrude: [tint(a, -0.55), tint(a, -0.8)], glow: a, glowBlur: 0.16, line: '#ffffff' };
-  if (finish === 'neon') return { stops: [[0, '#ffffff'], [0.45, tint(b, 0.55)], [1, tint(a, 0.1)]], extrude: [tint(a, -0.6), tint(a, -0.85)], glow: a, glowBlur: 0.34, tube: b, line: '#ffffff' };
-  if (finish === 'riviera') return { stops: [[0, '#fffaf0'], [0.55, '#ffe7c4'], [1, tint(b, 0.25)]], extrude: [tint(a, -0.2), tint(a, -0.55)], glowBlur: 0, line: '#ffffff' };
-  return { stops: [[0, '#fffdf4'], [0.4, tint(b, 0.45)], [0.72, b], [1, last ? a : b]], extrude: [tint(a, -0.45), tint(a, -0.75)], glow: a, glowBlur: 0.18, line: '#fff7e6' };
+  if (finish === 'chrome') return { stops: [[0, '#ffffff'], [0.26, '#fff4dc'], [0.47, tint(b, 0.3)], [0.5, '#2b0c3d'], [0.56, tint(a, -0.25)], [0.8, tint(a, 0.15)], [1, tint(b, 0.55)]], extrude: [tint(a, -0.5), tint(a, -0.78)], glow: a, glowBlur: 0.18 };
+  if (finish === 'neon') return { stops: [[0, '#ffffff'], [0.5, tint(b, 0.55)], [1, tint(b, 0.05)]], extrude: [tint(a, -0.55), tint(a, -0.85)], glow: a, glowBlur: 0.4, tube: a };
+  if (finish === 'riviera') return { stops: [[0, '#fffaf0'], [0.55, '#ffe5c0'], [1, tint(b, 0.2)]], extrude: [tint(a, -0.25), tint(a, -0.6)], glowBlur: 0 };
+  return { stops: [[0, '#fff8e0'], [0.38, tint(b, 0.35)], [0.7, b], [1, a]], extrude: [tint(a, -0.48), tint(a, -0.8)], glow: a, glowBlur: 0.16 };
 }
 
-function drawTitle(ctx, geo, state, title, grade) {
+function drawTitle(ctx, geo, state, zone, grade) {
   const st = FONT_STYLES[state.fontStyle] ?? FONT_STYLES.chrome;
-  const reserve = (state.caption.subtitle || '').trim() ? Math.min(title.h * 0.2, geo.height * 0.05) : 0;
-  const maxH = Math.max(geo.height * 0.06, title.h - reserve);
-  const { lines, size } = titleLines(ctx, state.caption.title, title.w, maxH, st);
-  const lineGap = size * 0.9;
-  const blockH = size + lineGap * (lines.length - 1);
-  const blockTop = title.y + (maxH - blockH) / 2;
+  const kicker = (state.caption.tagline || '').trim();
+  const subtitle = (state.caption.subtitle || '').trim();
+  const kickH = kicker ? Math.min(zone.h * 0.12, geo.height * 0.032) : 0;
+  const subH = subtitle ? Math.min(zone.h * 0.2, geo.height * 0.055) : 0;
+  const maxH = Math.max(geo.height * 0.06, zone.h - kickH - subH);
+  const { lines, size } = titleLines(ctx, state.caption.title, zone.w, maxH, st);
+  const lineGap = size * 0.88;
   const depth = size * st.depth;
-  const pad = Math.max(24, size * 0.5);
+  const blockH = size * 0.78 + lineGap * (lines.length - 1) + depth;
+  const top = zone.y + kickH + (maxH - blockH) / 2;
+  const pad = Math.ceil(size * 0.45);
   const layer = document.createElement('canvas');
-  const layerW = (layer.width = Math.ceil(title.w + pad * 2));
-  const layerH = (layer.height = Math.ceil(Math.max(maxH, blockH) + pad * 2));
+  const layerW = (layer.width = Math.ceil(zone.w + pad * 2));
+  const layerH = (layer.height = Math.ceil(blockH + pad * 2));
   const t = layer.getContext('2d');
   Object.assign(t, { lineJoin: 'round', miterLimit: 2 });
-  let baseline = pad + blockTop - title.y + size * 0.8;
-
+  const fin = finishOf(st.finish, grade);
+  let left = Infinity;
+  let right = -Infinity;
   lines.forEach((line, index) => {
-    const fin = finishOf(st.finish, grade, index === lines.length - 1);
-    t.save();
     font(t, st.weight, size, st.stack, st.tracking);
     const lineW = t.measureText(line).width * st.condense;
-    t.translate(title.align === 'center' ? pad + (title.w - lineW - depth) / 2 : pad, baseline);
+    const x0 = zone.align === 'center' ? pad + (zone.w - lineW - depth) / 2 : pad;
+    left = Math.min(left, x0);
+    right = Math.max(right, x0 + lineW + depth);
+    t.save();
+    t.translate(x0, pad + size * 0.78 + lineGap * index);
     t.transform(1, 0, -st.skew, 1, 0, 0);
     t.scale(st.condense, 1);
-    font(t, st.weight, size, st.stack, st.tracking);
     if (fin.glowBlur) {
       t.save();
-      Object.assign(t, { shadowColor: fin.glow, shadowBlur: size * fin.glowBlur, strokeStyle: fin.glow, lineWidth: size * 0.14, globalAlpha: 0.8 });
+      Object.assign(t, { shadowColor: fin.glow, shadowBlur: size * fin.glowBlur, strokeStyle: fin.glow, lineWidth: size * 0.16, globalAlpha: 0.85 });
       t.strokeText(line, depth, depth);
       t.restore();
     }
-    const steps = Math.max(2, Math.round(depth / Math.max(1, size * 0.012)));
-    Object.assign(t, { strokeStyle: INK, lineWidth: size * 0.17 });
+    // the extrusion: stacked copies stepping down-right, lit at the face and dark at the back
+    const steps = Math.max(3, Math.round(depth / Math.max(1, size * 0.01)));
+    Object.assign(t, { strokeStyle: INK, lineWidth: size * 0.19 });
     t.strokeText(line, depth, depth);
     for (let s = steps; s >= 1; s--) {
-      t.fillStyle = s / steps > 0.5 ? fin.extrude[1] : fin.extrude[0];
+      t.fillStyle = s / steps > 0.45 ? fin.extrude[1] : fin.extrude[0];
       t.fillText(line, (depth * s) / steps, (depth * s) / steps);
     }
-    t.lineWidth = size * 0.15;
+    t.lineWidth = size * 0.16;
     t.strokeText(line, 0, 0);
-    t.fillStyle = gradient(t.createLinearGradient(0, -size * 0.74, 0, size * 0.06), fin.stops);
+    t.fillStyle = gradient(t.createLinearGradient(0, -size * 0.74, 0, size * 0.04), fin.stops);
     t.fillText(line, 0, 0);
     if (fin.tube) {
-      t.save();
-      Object.assign(t, { shadowColor: fin.tube, shadowBlur: size * 0.08, strokeStyle: fin.tube, lineWidth: size * 0.022 });
+      Object.assign(t, { shadowColor: fin.tube, shadowBlur: size * 0.1, strokeStyle: tint(fin.tube, 0.35), lineWidth: size * 0.026 });
       t.strokeText(line, 0, 0);
-      t.restore();
+      t.shadowBlur = 0;
     }
-    Object.assign(t, { globalAlpha: 0.55, strokeStyle: fin.line, lineWidth: size * 0.014 });
-    t.strokeText(line, -size * 0.008, -size * 0.008);
+    Object.assign(t, { globalAlpha: 0.7, strokeStyle: '#ffffff', lineWidth: size * 0.012 });
+    t.strokeText(line, -size * 0.006, -size * 0.008);
     t.restore();
-    baseline += lineGap;
   });
-
-  Object.assign(t, { globalCompositeOperation: 'source-atop', fillStyle: gradient(t.createLinearGradient(0, 0, layerW, layerH), [[0, 'rgba(255,255,255,0.22)'], [0.35, 'rgba(255,255,255,0)'], [0.7, 'rgba(255,255,255,0.08)'], [1, 'rgba(0,0,0,0.06)']]) });
+  // a soft specular sweep across the faces of the letters
+  Object.assign(t, { globalCompositeOperation: 'source-atop', fillStyle: gradient(t.createLinearGradient(0, 0, layerW, layerH), [[0, 'rgba(255,255,255,0.2)'], [0.3, 'rgba(255,255,255,0)'], [0.62, 'rgba(255,255,255,0.1)'], [1, 'rgba(0,0,0,0.05)']]) });
   t.fillRect(0, 0, layerW, layerH);
-  Object.assign(t, { globalAlpha: 0.05, fillStyle: INK });
-  for (let y = 0; y < layerH; y += Math.max(4, Math.round(size * 0.04))) t.fillRect(0, y, layerW, Math.max(1, size * 0.006));
 
+  const ox = zone.x - pad;
+  const oy = top - pad;
   ctx.save();
-  Object.assign(ctx, { shadowColor: 'rgba(0,0,0,0.6)', shadowBlur: size * 0.12, shadowOffsetY: size * 0.04 });
-  ctx.drawImage(layer, title.x - pad, title.y - pad);
+  Object.assign(ctx, { shadowColor: 'rgba(4,0,10,0.72)', shadowBlur: size * 0.1, shadowOffsetX: size * 0.05, shadowOffsetY: size * 0.08 });
+  ctx.drawImage(layer, ox, oy);
   ctx.restore();
-  if (st.finish === 'chrome' || st.finish === 'neon') star4(ctx, title.align === 'center' ? title.x + title.w * 0.2 : title.x + size * 0.3, blockTop + size * 0.08, size * 0.22);
-  return { size, blockBottom: blockTop + blockH + depth };
+  const rect = { x: ox + left, y: top, w: right - left, h: blockH, size };
+  if (st.finish === 'chrome' || st.finish === 'neon') star4(ctx, rect.x + rect.w * 0.06, top + size * 0.1, size * 0.24);
+  if (kicker) drawKicker(ctx, kicker, zone, rect, kickH, grade);
+  return rect;
+}
+
+function drawKicker(ctx, text, zone, rect, h, grade) {
+  const size = clamp(h * 0.72, 9, 40);
+  ctx.save();
+  font(ctx, 800, size, TEXT_FONT, 0.32);
+  const label = text.toUpperCase();
+  const w = ctx.measureText(label).width;
+  const cx = zone.align === 'center' ? rect.x + rect.w / 2 : rect.x + w / 2 + size;
+  const y = rect.y - size * 0.35;
+  Object.assign(ctx, { textAlign: 'center', textBaseline: 'alphabetic', shadowColor: 'rgba(0,0,0,0.9)', shadowBlur: size * 0.5, fillStyle: '#fff3dc' });
+  ctx.fillText(label, cx, y);
+  ctx.shadowColor = 'transparent';
+  ctx.fillStyle = gradient(ctx.createLinearGradient(cx - w, 0, cx + w, 0), [[0, grade.accent], [1, grade.accent2]]);
+  for (const dir of [-1, 1]) ctx.fillRect(dir < 0 ? cx - w / 2 - size * 3.2 : cx + w / 2 + size * 0.8, y - size * 0.42, size * 2.4, Math.max(2, size * 0.16));
+  ctx.restore();
 }
 
 function star4(ctx, x, y, r) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = gradient(ctx.createRadialGradient(x, y, 0, x, y, r * 0.5), [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']]);
+  ctx.fillStyle = gradient(ctx.createRadialGradient(x, y, 0, x, y, r * 0.55), [[0, 'rgba(255,255,255,0.9)'], [1, 'rgba(255,255,255,0)']]);
   ctx.fillRect(x - r, y - r, r * 2, r * 2);
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
-  for (let i = 0; i < 8; i++) ctx.lineTo(x + Math.cos((i * Math.PI) / 4) * (i % 2 ? r * 0.08 : r), y + Math.sin((i * Math.PI) / 4) * (i % 2 ? r * 0.08 : r));
+  for (let i = 0; i < 8; i++) ctx.lineTo(x + Math.cos((i * Math.PI) / 4) * (i % 2 ? r * 0.07 : r), y + Math.sin((i * Math.PI) / 4) * (i % 2 ? r * 0.07 : r));
   ctx.closePath();
   ctx.fill();
   ctx.restore();
@@ -166,117 +187,88 @@ function slant(ctx, pts) {
   ctx.closePath();
 }
 
-function drawSubtitle(ctx, geo, state, title, info, grade, avoid) {
+// The subtitle ribbon: a sharp parallelogram in the grade's accents with an ink keyline and a
+// dark cast copy behind it, tucked just under the extrusion.
+function drawRibbon(ctx, geo, state, zone, rect, grade) {
   const text = (state.caption.subtitle || '').trim().toUpperCase();
-  if (!text) return;
+  if (!text) return null;
   const { width: w, height: h } = geo;
-  const size = clamp(Math.min(h * 0.03, info.size * 0.13), 12, 60);
+  const size = clamp(Math.min(h * 0.032, rect.size * 0.17), 11, 64);
   ctx.save();
-  font(ctx, 800, size, TEXT_FONT, 0.17);
+  font(ctx, 900, size, TEXT_FONT, 0.2);
   const textW = ctx.measureText(text).width;
-  const s = size * Math.min(1, (title.w * 0.94) / textW);
-  const ph = s * 1.7;
-  const pw = textW * (s / size) + s * 2.2;
-  let x = title.align === 'center' ? title.x + (title.w - pw) / 2 : title.x;
-  const y = clamp(info.blockBottom + h * 0.012, h * 0.02, h * 0.92 - ph);
-  if (avoid && y + ph > avoid.y && x < avoid.x + avoid.w) x = Math.max(x, avoid.x + avoid.w + w * 0.015);
-  x = clamp(x, w * 0.03, w - w * 0.03 - pw);
-  const k = ph * 0.34;
-  Object.assign(ctx, { shadowColor: 'rgba(0,0,0,0.5)', shadowBlur: ph * 0.35, fillStyle: 'rgba(10,10,13,0.94)' });
-  slant(ctx, [x + k, y, x + pw, y, x + pw - k, y + ph, x, y + ph]);
+  const s = size * Math.min(1, (zone.w * 0.8) / (textW + size * 3));
+  font(ctx, 900, s, TEXT_FONT, 0.2);
+  const tw = ctx.measureText(text).width;
+  const ph = s * 1.75;
+  const pw = tw + s * 2.6;
+  const k = ph * 0.42;
+  let x = zone.align === 'center' ? rect.x + (rect.w - pw) / 2 : rect.x + rect.size * 0.12;
+  x = clamp(x, w * 0.03, w * 0.97 - pw);
+  const y = clamp(rect.y + rect.h - rect.size * 0.02, h * 0.02, h * 0.97 - ph);
+  const shape = (dx, dy) => slant(ctx, [x + k + dx, y + dy, x + pw + dx, y + dy, x + pw - k + dx, y + ph + dy, x + dx, y + ph + dy]);
+  ctx.fillStyle = 'rgba(6,1,12,0.85)';
+  shape(s * 0.28, s * 0.32);
   ctx.fill();
-  Object.assign(ctx, { shadowColor: 'transparent', strokeStyle: 'rgba(255,244,218,0.6)', lineWidth: Math.max(1, ph * 0.035) });
+  ctx.fillStyle = gradient(ctx.createLinearGradient(x, 0, x + pw, 0), [[0, grade.accent], [1, grade.accent2]]);
+  shape(0, 0);
+  ctx.fill();
+  Object.assign(ctx, { strokeStyle: INK, lineWidth: Math.max(2, ph * 0.08), lineJoin: 'miter' });
   ctx.stroke();
-  ctx.fillStyle = accentBar(ctx, x, x + pw, grade);
-  slant(ctx, [x + k, y, x + k + ph * 0.28, y, x + ph * 0.28, y + ph, x, y + ph]);
+  ctx.fillStyle = 'rgba(255,255,255,0.28)';
+  slant(ctx, [x + k, y, x + pw, y, x + pw - k * 0.18, y + ph * 0.18, x + k * 0.82, y + ph * 0.18]);
   ctx.fill();
-  font(ctx, 800, s, TEXT_FONT, 0.17);
-  Object.assign(ctx, { fillStyle: '#fff4d8', textBaseline: 'middle' });
-  ctx.fillText(text, x + s * 0.9, y + ph / 2 + s * 0.04);
+  Object.assign(ctx, { fillStyle: '#12051c', textBaseline: 'middle', textAlign: 'center' });
+  ctx.fillText(text, x + pw / 2 + s * 0.1, y + ph / 2 + s * 0.06);
   ctx.restore();
-}
-
-function drawTagline(ctx, geo, state, grade, top) {
-  const text = (state.caption.tagline || '').trim().toUpperCase();
-  if (!text) return;
-  const { x } = geo.zones.tagline;
-  const size = clamp(Math.min(geo.width, geo.height) * 0.02, 10, 34);
-  const y = Math.max(geo.zones.tagline.y, top + size * 1.9);
-  ctx.save();
-  ctx.fillStyle = accentBar(ctx, x, x + size * 3, grade);
-  ctx.fillRect(x, y - size * 0.45, size * 2.6, Math.max(3, size * 0.2));
-  Object.assign(ctx, { shadowColor: 'rgba(0,0,0,0.8)', shadowBlur: size * 0.5, fillStyle: 'rgba(255,246,225,0.96)', textBaseline: 'middle' });
-  font(ctx, 800, size, TEXT_FONT, 0.24);
-  ctx.fillText(text, x + size * 3.3, y - size * 0.32);
-  ctx.restore();
+  return { x, y, w: pw, h: ph };
 }
 
 function drawPlatformBand(ctx, geo, state, grade) {
   const { width: w, height: h } = geo;
   const unit = Math.min(w, h);
-  const bh = Math.round(unit * 0.052);
-  const fs = bh * 0.44;
+  const bh = Math.round(unit * 0.046);
+  const fs = bh * 0.46;
   const mx = unit * 0.03;
-  const right = w - unit * 0.03;
-  const chipW = fs * 2.6;
-  const rule = accentBar(ctx, 0, w, grade);
   ctx.save();
   ctx.fillStyle = INK;
   ctx.fillRect(0, 0, w, bh);
-  ctx.fillStyle = rule;
+  ctx.fillStyle = gradient(ctx.createLinearGradient(0, 0, w, 0), [[0, grade.accent], [1, grade.accent2]]);
   ctx.fillRect(0, bh, w, Math.max(2, unit * 0.004));
-  ctx.textBaseline = 'middle';
   slant(ctx, [mx, bh * 0.76, mx + bh * 0.3, bh * 0.22, mx + bh * 0.6, bh * 0.76]);
   ctx.fill();
-  ctx.fillStyle = '#ffffff';
+  Object.assign(ctx, { fillStyle: '#ffffff', textBaseline: 'middle' });
   font(ctx, 900, fs, TITLE_FONT, 0.16);
-  ctx.fillText((state.caption.platform || 'CONSOLE EDITION').toUpperCase().slice(0, 26), mx + bh * 0.85, bh * 0.53);
-  font(ctx, 800, fs * 0.7, TEXT_FONT, 0.12 / 0.7);
-  const note = '4K · HDR · 1 PLAYER';
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.fillText(note, right - chipW - fs * 0.6 - ctx.measureText(note).width, bh * 0.53);
-  Object.assign(ctx, { strokeStyle: '#ffffff', lineWidth: Math.max(1.2, bh * 0.05), fillStyle: '#ffffff', textAlign: 'center' });
-  ctx.strokeRect(right - chipW, bh * 0.22, chipW, bh * 0.56);
-  ctx.font = `900 ${fs * 0.78}px ${TITLE_FONT}`;
-  ctx.fillText('PRO', right - chipW / 2, bh * 0.53);
+  ctx.fillText((state.caption.platform || 'COLLECTOR EDITION').toUpperCase().slice(0, 26), mx + bh * 0.85, bh * 0.53);
   ctx.restore();
-  return bh + unit * 0.004;
-}
-
-function ageRect(geo) {
-  const unit = Math.min(geo.width, geo.height);
-  const hh = unit * 0.115;
-  return { x: unit * 0.03, y: geo.height - unit * 0.03 - hh, w: hh * 0.76, h: hh };
 }
 
 function drawAgePlate(ctx, { x, y, w, h }, grade) {
   const r = w * 0.14;
   ctx.save();
-  Object.assign(ctx, { shadowColor: 'rgba(0,0,0,0.5)', shadowBlur: h * 0.2, fillStyle: '#f7f2ea' });
+  Object.assign(ctx, { shadowColor: 'rgba(0,0,0,0.55)', shadowBlur: h * 0.18, fillStyle: '#f7f2ea' });
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
   ctx.fill();
   Object.assign(ctx, { shadowColor: 'transparent', lineWidth: Math.max(2, w * 0.05), strokeStyle: INK, fillStyle: INK });
   ctx.stroke();
   ctx.beginPath();
-  ctx.roundRect(x + w * 0.08, y + h * 0.06, w * 0.84, h * 0.6, r * 0.6);
+  ctx.roundRect(x + w * 0.09, y + h * 0.07, w * 0.82, h * 0.58, r * 0.6);
   ctx.fill();
   Object.assign(ctx, { textAlign: 'center', textBaseline: 'middle' });
   ctx.fillStyle = gradient(ctx.createLinearGradient(0, y, 0, y + h * 0.6), [[0, grade.accent2], [1, grade.accent]]);
-  font(ctx, 900, h * 0.36, TITLE_FONT, -0.01 * (h / (h * 0.36)));
+  font(ctx, 900, h * 0.36, TITLE_FONT);
   ctx.fillText('17+', x + w / 2, y + h * 0.37);
   ctx.fillStyle = INK;
-  font(ctx, 800, h * 0.105, TEXT_FONT, 0.012 / 0.105);
-  ctx.fillText('MATURE', x + w / 2, y + h * 0.77);
-  ctx.font = `700 ${h * 0.068}px ${TEXT_FONT}`;
-  ctx.fillText('AGES 17 & UP', x + w / 2, y + h * 0.89);
+  font(ctx, 900, h * 0.12, TEXT_FONT, 0.04);
+  ctx.fillText('MATURE', x + w / 2, y + h * 0.8);
   ctx.restore();
 }
 
 function drawArcText(ctx, text, radius, start, end, size, color, under = false) {
   const chars = [...text];
   ctx.save();
-  Object.assign(ctx, { fillStyle: color, font: `800 ${size}px ${TEXT_FONT}`, textAlign: 'center', textBaseline: 'middle' });
+  Object.assign(ctx, { fillStyle: color, font: `900 ${size}px ${TEXT_FONT}`, textAlign: 'center', textBaseline: 'middle' });
   chars.forEach((ch, i) => {
     const a = start + ((end - start) * (i + 0.5)) / chars.length;
     ctx.save();
@@ -288,8 +280,9 @@ function drawArcText(ctx, text, radius, start, end, size, color, under = false) 
   ctx.restore();
 }
 
-function drawMedallion(ctx, geo, state, grade) {
-  const { cx, cy, radius: R } = geo.zones.badge;
+// The VP seal: a notched ink disc, a banded sunset core with the monogram and the edition text
+// on its rim.
+function drawSeal(ctx, { cx, cy, radius: R }, state, grade) {
   const ring = (r) => {
     ctx.beginPath();
     ctx.arc(0, 0, r, 0, Math.PI * 2);
@@ -297,85 +290,76 @@ function drawMedallion(ctx, geo, state, grade) {
   ctx.save();
   ctx.translate(cx, cy);
   ctx.rotate(-0.12);
-  Object.assign(ctx, { shadowColor: 'rgba(0,0,0,0.6)', shadowBlur: R * 0.45, shadowOffsetY: R * 0.1, fillStyle: INK });
+  Object.assign(ctx, { shadowColor: 'rgba(0,0,0,0.6)', shadowBlur: R * 0.4, shadowOffsetY: R * 0.08, fillStyle: INK });
   ctx.beginPath();
-  for (let i = 0; i < 48; i++) ctx.lineTo(Math.cos((i / 48) * Math.PI * 2) * (i % 2 ? R * 0.94 : R), Math.sin((i / 48) * Math.PI * 2) * (i % 2 ? R * 0.94 : R));
+  for (let i = 0; i < 40; i++) ctx.lineTo(Math.cos((i / 40) * Math.PI * 2) * (i % 2 ? R * 0.93 : R), Math.sin((i / 40) * Math.PI * 2) * (i % 2 ? R * 0.93 : R));
   ctx.closePath();
   ctx.fill();
-  Object.assign(ctx, { shadowColor: 'transparent', lineWidth: Math.max(2, R * 0.05), strokeStyle: grade.accent2 });
+  Object.assign(ctx, { shadowColor: 'transparent', lineWidth: Math.max(2, R * 0.045), strokeStyle: grade.accent2 });
   ctx.stroke();
-  for (let i = 0; i < 20; i++) {
-    const a = (i / 20) * Math.PI * 2;
-    ctx.fillStyle = i % 2 ? `${grade.accent}88` : `${grade.accent2}66`;
-    slant(ctx, [Math.cos(a) * R * 0.58, Math.sin(a) * R * 0.58, Math.cos(a + 0.12) * R * 0.86, Math.sin(a + 0.12) * R * 0.86, Math.cos(a + 0.2) * R * 0.58, Math.sin(a + 0.2) * R * 0.58]);
-    ctx.fill();
-  }
   ctx.save();
-  ring(R * 0.56);
+  ring(R * 0.58);
   ctx.clip();
-  ctx.fillStyle = gradient(ctx.createLinearGradient(0, -R * 0.56, 0, R * 0.56), [[0, '#fff3c0'], [0.5, grade.accent2], [1, grade.accent]]);
+  ctx.fillStyle = gradient(ctx.createLinearGradient(0, -R * 0.58, 0, R * 0.58), [[0, '#fff3c0'], [0.5, grade.accent2], [1, grade.accent]]);
   ctx.fillRect(-R, -R, R * 2, R * 2);
   ctx.fillStyle = INK;
-  for (let i = 0; i < 4; i++) ctx.fillRect(-R, R * (0.12 + i * 0.12), R * 2, R * (0.025 + i * 0.012));
+  for (let i = 0; i < 4; i++) ctx.fillRect(-R, R * (0.14 + i * 0.12), R * 2, R * (0.025 + i * 0.012));
   ctx.restore();
-  ring(R * 0.56);
+  ring(R * 0.58);
   Object.assign(ctx, { lineWidth: Math.max(2, R * 0.04), strokeStyle: INK });
   ctx.stroke();
-  Object.assign(ctx, { font: `900 ${R * 0.46}px ${TITLE_FONT}`, textAlign: 'center', textBaseline: 'middle', lineWidth: R * 0.1, fillStyle: '#fffaf0' });
-  ctx.strokeText('VP', 0, -R * 0.06);
-  ctx.fillText('VP', 0, -R * 0.06);
-  drawArcText(ctx, (state.caption.badge || 'SUNSET EDITION').trim().toUpperCase().slice(0, 24), R * 0.74, -Math.PI * 0.84, -Math.PI * 0.16, Math.max(6, R * 0.11), '#fff6e1');
-  drawArcText(ctx, '★ LEONIDA ★', R * 0.76, Math.PI * 0.72, Math.PI * 0.28, Math.max(6, R * 0.1), grade.accent2, true);
+  Object.assign(ctx, { font: `900 ${R * 0.5}px ${TITLE_FONT}`, textAlign: 'center', textBaseline: 'middle', lineWidth: R * 0.11, fillStyle: '#fffaf0', lineJoin: 'round' });
+  ctx.strokeText('VP', 0, -R * 0.08);
+  ctx.fillText('VP', 0, -R * 0.08);
+  drawArcText(ctx, (state.caption.badge || 'SUNSET EDITION').trim().toUpperCase().slice(0, 20), R * 0.77, -Math.PI * 0.86, -Math.PI * 0.14, Math.max(6, R * 0.12), '#fff6e1');
   ctx.restore();
 }
 
-function drawFooter(ctx, geo, left) {
-  const { width: w, height: h } = geo;
-  const unit = Math.min(w, h);
-  const size = clamp(unit * 0.0125, 7, 19);
-  const y = h - unit * 0.036;
-  const barW = unit * 0.11;
-  const barH = size * 1.75;
-  const barX = w - unit * 0.03 - barW;
-  const maxText = barX - left - unit * 0.03;
+function drawBarcode(ctx, { x, y, w, h }) {
   ctx.save();
-  ctx.fillStyle = gradient(ctx.createLinearGradient(0, h - unit * 0.11, 0, h), [[0, 'rgba(10,10,13,0)'], [1, 'rgba(10,10,13,0.78)']]);
-  ctx.fillRect(0, h - unit * 0.11, w, unit * 0.11);
-  let text = 'AN ORIGINAL VICE PRISM PRODUCTION  ·  LEONIDA COVER STUDIO  ·  NOT AFFILIATED WITH ANY GAME PUBLISHER';
-  let px = size;
-  font(ctx, 600, px, TEXT_FONT, 0.1);
-  while (ctx.measureText(text).width > maxText && px > size * 0.72) font(ctx, 600, (px *= 0.96), TEXT_FONT, 0.06);
-  if (ctx.measureText(text).width > maxText) {
-    while (text.length > 12 && ctx.measureText(`${text.slice(0, -2)}…`).width > maxText) text = text.slice(0, -2);
-    text = `${text.slice(0, -1)}…`;
-  }
-  Object.assign(ctx, { shadowColor: 'rgba(0,0,0,0.9)', shadowBlur: size * 0.6, fillStyle: 'rgba(255,246,228,0.72)' });
-  ctx.fillText(text, left, y);
-  Object.assign(ctx, { shadowColor: 'transparent', fillStyle: 'rgba(255,255,255,0.92)' });
-  ctx.fillRect(barX - size * 0.4, y - barH - size * 0.5, barW + size * 0.8, barH + size * 1.6);
-  ctx.fillStyle = INK;
-  for (let cursor = barX, seed = 41; cursor < barX + barW;) {
+  Object.assign(ctx, { fillStyle: '#f7f4ee', shadowColor: 'rgba(0,0,0,0.5)', shadowBlur: h * 0.2 });
+  ctx.fillRect(x, y, w, h);
+  Object.assign(ctx, { shadowColor: 'transparent', fillStyle: INK });
+  const bx = x + w * 0.07;
+  const bw = w * 0.86;
+  for (let cursor = bx, seed = 41; cursor < bx + bw;) {
     seed = (seed * 16807) % 2147483647;
-    const bw = Math.max(1, (seed % 4) * (barH * 0.07));
-    ctx.fillRect(cursor, y - barH - size * 0.2, Math.min(bw, barX + barW - cursor), barH);
-    cursor += bw + Math.max(1, ((seed >> 3) % 3) * (barH * 0.06));
+    const lw = Math.max(1, (seed % 4) * (h * 0.035));
+    ctx.fillRect(cursor, y + h * 0.1, Math.min(lw, bx + bw - cursor), h * 0.62);
+    cursor += lw + Math.max(1, ((seed >> 3) % 3) * (h * 0.03));
   }
-  ctx.font = `700 ${Math.max(6, size * 0.75)}px ${TEXT_FONT}`;
-  ctx.fillText('VP-26-0417', barX, y + size * 0.65);
+  Object.assign(ctx, { font: `700 ${h * 0.17}px ${TEXT_FONT}`, textAlign: 'center', textBaseline: 'middle' });
+  ctx.fillText('VP 26 0417 5', x + w / 2, y + h * 0.86);
   ctx.restore();
 }
 
-export function renderLettering(ctx, geo, state, grade, stickers = {}) {
-  const title = resolveTitleZone(geo, state);
+// Places the seal at the layout's spot unless the title, ribbon or a face is there; then it tries
+// the other corners of the cover.
+function sealSpot(geo, blocked, faces) {
+  const { cx, cy, radius: R } = geo.zones.badge;
+  const m = R * 1.25;
+  const spots = [[cx, cy], [geo.width - m, m], [geo.width - m, geo.height * 0.5], [m, m]];
+  const rectAt = ([x, y]) => ({ x: x - R, y: y - R, w: R * 2, h: R * 2 });
+  const hit = (s) => blocked.some((b) => b && overlap(rectAt(s), b) > 0) || faceCost(rectAt(s), faces) > 0.02;
+  const [x, y] = spots.find((s) => !hit(s)) ?? spots[0];
+  return { cx: x, cy: y, radius: R };
+}
+
+export function renderLettering(ctx, geo, state, grade, stickers = {}, faces = []) {
   const unit = Math.min(geo.width, geo.height);
-  drawScrim(ctx, geo, title);
-  const top = stickers.header ? drawPlatformBand(ctx, geo, state, grade) : 0;
-  const info = drawTitle(ctx, geo, state, title, grade);
-  const age = stickers.age ? ageRect(geo) : null;
-  drawSubtitle(ctx, geo, state, title, info, grade, age);
-  drawTagline(ctx, geo, state, grade, top);
-  if (stickers.medallion) drawMedallion(ctx, geo, state, grade);
-  if (age) drawAgePlate(ctx, age, grade);
-  drawFooter(ctx, geo, age ? age.x + age.w + unit * 0.025 : unit * 0.04);
-  return title;
+  const zone = resolveTitleZone(geo, state, faces);
+  if (stickers.header) drawPlatformBand(ctx, geo, state, grade);
+  const rect = drawTitle(ctx, geo, state, zone, grade);
+  const ribbon = drawRibbon(ctx, geo, state, zone, rect, grade);
+  const m = unit * 0.032;
+  if (stickers.age) {
+    const h = unit * 0.1;
+    drawAgePlate(ctx, { x: m, y: geo.height - m - h, w: h * 0.78, h }, grade);
+  }
+  if (stickers.barcode) {
+    const bw = unit * 0.115;
+    drawBarcode(ctx, { x: geo.width - m - bw, y: geo.height - m - bw * 0.5, w: bw, h: bw * 0.5 });
+  }
+  if (stickers.medallion) drawSeal(ctx, sealSpot(geo, [rect, ribbon], faces), state, grade);
+  return { zone, rect, ribbon };
 }

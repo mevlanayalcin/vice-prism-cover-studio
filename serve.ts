@@ -1,5 +1,6 @@
 // A tiny static server for app/ (Node 22, standard library only), so an entry can be tried
-// locally without a build step: `node serve.ts` serves app/ on http://localhost:8080.
+// locally without a build step: `node serve.ts` serves app/ on http://localhost:8080, and
+// `PORT=8095 node serve.ts` or `node serve.ts --port 8095` picks another port.
 // It sends the MIME types an offline web app needs, refuses any path outside app/, and otherwise
 // does nothing clever: this is a development convenience, not a web server for the internet.
 import { createReadStream, statSync } from 'node:fs';
@@ -10,7 +11,9 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(fileURLToPath(new URL('./app', import.meta.url)));
 const args = process.argv.slice(2);
 const portIndex = args.indexOf('--port');
-const requested = portIndex === -1 ? 8080 : Number(args[portIndex + 1]);
+const flagPort = portIndex === -1 ? undefined : Number(args[portIndex + 1]);
+const envPort = process.env.PORT === undefined || process.env.PORT === '' ? undefined : Number(process.env.PORT);
+const requested = flagPort ?? envPort ?? 8080;
 const port = Number.isInteger(requested) && requested > 0 && requested < 65536 ? requested : 8080;
 
 const MIME: Record<string, string> = {

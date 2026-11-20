@@ -1,54 +1,54 @@
 [
   {
     "name": "1-cover-sunset-grid.jpg",
-    "kind": "showcase of the exported cover",
-    "query": "?demo=cover&view=showcase",
+    "kind": "exported cover, true full-bleed",
+    "query": "?demo=cover&shot=export",
     "layout": "classic7",
     "size": "1920x1080",
     "grade": "vice-sunset",
     "caption": "VICE HORIZON · A Leonida Story",
-    "note": "Classic 7-panel cover at export resolution: the boulevard and pier photos painted by the GTA engine (Kuwahara oil paint, XDoG ink, cel planes, sunset relight), the neon boulevard coupe, the sunset skyline under the chrome title, harbor chase, searchlight helicopter and the getaway; 3D box case and every post size beneath.",
+    "note": "The app's own Canvas PNG exporter at 1920 × 1080, shown full-bleed with zero UI bars: seven photo panels painted live by the Kuwahara oil-paint, XDoG cel-ink and gradient-map engine, framed on each subject under the chrome VICE HORIZON lettering, platform band, seal and 17+ plate. Delivered here Lanczos-downscaled to 1280 × 720 (16:9).",
     "w": 1280,
-    "h": 800,
-    "jpeg_quality": 92,
-    "max_bytes": 215000
+    "h": 720,
+    "jpeg_quality": 86,
+    "max_bytes": 235000
   },
   {
     "name": "2-studio-editor.jpg",
-    "kind": "studio editor with photos loaded",
+    "kind": "studio editor with the painted cover loaded",
     "query": "?demo=cover&panel=1",
-    "note": "Nine layouts, post sizes, photo dropzone and gallery, the Photo → GTA paint before/after of the selected panel, live preview with the active cut outlined, panel strip with swap, flip, per-panel grade, zoom and rotate, colour grades, lettering fields, stickers, ink and paint sliders, PNG / JPG export.",
+    "note": "The live studio at 1280 × 800: nine layouts, three post sizes, the eight-photo gallery and dropzone, the Photo → GTA paint Before/After split of the selected panel, the live painted preview with the active cut outlined, the seven-panel strip with swap, flip, per-panel grade, zoom and rotate, six colour grades, caption and type-finish fields, box-art marks, the Kuwahara / XDoG ink / halftone / grain / grade sliders, and PNG / JPG export at every size.",
     "w": 1280,
     "h": 800,
-    "jpeg_quality": 92,
-    "max_bytes": 215000
+    "jpeg_quality": 84,
+    "max_bytes": 235000
   },
   {
     "name": "3-cover-neon-night.jpg",
-    "kind": "showcase of the exported cover",
-    "query": "?demo=neon&view=showcase",
-    "layout": "asym9",
+    "kind": "exported cover, true full-bleed",
+    "query": "?demo=neon&shot=export",
+    "layout": "asym7",
     "size": "1080x1350",
     "grade": "neon-midnight",
     "caption": "LEONIDA NIGHTS · After Hours on Ocean Drive",
-    "note": "Asymmetric 9-panel 4:5 cover relit for night: both photos painted cyan and magenta (one photo in two cuts, one flipped close), every inked scene in its night version, live 3D box case beside it.",
-    "w": 1280,
-    "h": 800,
-    "jpeg_quality": 92,
-    "max_bytes": 215000
+    "note": "The Neon Midnight cover exported by the app's Canvas PNG path at 1080 × 1350 and shown full-bleed with zero UI bars: seven asymmetric cuts of the eight candid sample photos relit cyan and magenta by the gradient-map grade, ink contours and cel planes drawn live under the neon VICE lettering. Delivered here Lanczos-downscaled to 1024 × 1280 (4:5).",
+    "w": 1024,
+    "h": 1280,
+    "jpeg_quality": 78,
+    "max_bytes": 235000
   },
   {
     "name": "4-cover-coastal-classic.jpg",
-    "kind": "showcase of the exported cover",
-    "query": "?demo=coast&view=showcase",
-    "layout": "panorama",
+    "kind": "exported cover, true full-bleed",
+    "query": "?demo=coast&shot=export",
+    "layout": "diagonal5",
     "size": "1080x1080",
     "grade": "coastal-day",
     "caption": "MIAMI DRIFT · Turquoise Season",
-    "note": "Panoramic 1:1 split: the harbor chase over both painted photos in the turquoise daylight grade, with the live 3D box case.",
-    "w": 1280,
-    "h": 800,
-    "jpeg_quality": 92,
-    "max_bytes": 215000
+    "note": "The turquoise Miami Drift cover exported by the app itself at 1080 × 1080 and shown full-bleed with zero UI bars: the diagonal five-panel cut of painted harbor, boulevard and pier photos, gradient-mapped into clean coastal daylight with XDoG ink and flat cel value planes. Delivered here at 1080 × 1080 (1:1).",
+    "w": 1080,
+    "h": 1080,
+    "jpeg_quality": 84,
+    "max_bytes": 235000
   }
 ]

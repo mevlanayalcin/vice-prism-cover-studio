@@ -1,98 +1,123 @@
-// Nine original comic-mosaic layouts in unit space: slanted quadrilaterals whose gaps become the
-// thick #0A0A0D gutters, a title well, a tagline anchor and the edition-seal spot. Each cut is
-// [x0, y0, x1, y1, x2, y2, x3, y3, zoom, focusX, focusY]: its corners and the starting crop.
+// Nine original comic-mosaic layouts. Each one tiles the unit square edge to edge with slanted
+// convex cuts; buildGeometry then insets every cut in pixels, so the black gutters are one even
+// width (GUTTER of the short side) at every post size, with a matching outer frame. Rows are built
+// from tilted lines [yLeft, yRight] and dividers [xTop, xBottom] so neighbouring cuts share edges.
 
-const layout = (id, name, note, cuts, title, tagline, badge) => ({
-  id,
-  name,
-  note,
-  panels: cuts.map((c) => ({ points: [0, 2, 4, 6].map((k) => ({ x: c[k], y: c[k + 1] })), focal: { zoom: c[8], x: c[9], y: c[10] } })),
-  zones: { title: { x: title[0], y: title[1], w: title[2], h: title[3], align: title[4] }, tagline: { x: tagline[0], y: tagline[1] }, badge: { x: badge[0], y: badge[1], size: badge[2] } },
+export const GUTTER = 0.0145;
+const yAt = (line, x) => line[0] + (line[1] - line[0]) * x;
+
+function row(top, bottom, dividers = []) {
+  const cuts = [[0, 0], ...dividers, [1, 1]];
+  return cuts.slice(1).map((d, i) => {
+    const [a, b] = [cuts[i], d];
+    return [[a[0], yAt(top, a[0])], [b[0], yAt(top, b[0])], [b[1], yAt(bottom, b[1])], [a[1], yAt(bottom, a[1])]];
+  });
+}
+
+const TOP = [0, 0];
+const FOOT = [1, 1];
+const zone = (x, y, w, h, align = 'center') => ({ x, y, w, h, align });
+const layout = (id, name, note, cuts, title, badge) => ({
+  id, name, note, title, badge: { x: badge[0], y: badge[1], size: badge[2] },
+  panels: cuts.map((pts) => ({ points: pts.map(([x, y]) => ({ x, y })) })),
 });
 
 export const LAYOUTS = [
-  layout('classic7', 'Classic 7-Panel', 'A hero cut between two wings, a lettering band and a three-cut foot.', [
-    [0, 0, 0.262, 0, 0.276, 0.47, 0.004, 0.478, 1.3, 0.5, 0.5],
-    [0.29, 0, 0.708, 0, 0.72, 0.47, 0.302, 0.478, 1.12, 0.5, 0.42],
-    [0.735, 0, 1, 0, 1, 0.468, 0.746, 0.47, 1.2, 0.5, 0.45],
-    [0, 0.494, 1, 0.486, 1, 0.742, 0.002, 0.75, 1.05, 0.5, 0.5],
-    [0, 0.766, 0.33, 0.76, 0.34, 1, 0.004, 1, 1.3, 0.5, 0.5],
-    [0.346, 0.76, 0.664, 0.756, 0.674, 1, 0.356, 1, 1.3, 0.5, 0.5],
-    [0.68, 0.756, 1, 0.752, 1, 1, 0.69, 1, 1.3, 0.5, 0.5],
-  ], [0.05, 0.5, 0.78, 0.235, 'center'], [0.055, 0.052], [0.875, 0.62, 0.15]),
-  layout('asym9', 'Asymmetric 9', 'A towering hero, a four-cut cluster and a four-cut filmstrip foot.', [
-    [0, 0, 0.42, 0, 0.43, 0.64, 0, 0.648, 1.1, 0.5, 0.45],
-    [0.444, 0, 0.716, 0, 0.71, 0.304, 0.448, 0.31, 1.3, 0.5, 0.5],
-    [0.73, 0, 1, 0, 1, 0.298, 0.724, 0.304, 1.3, 0.5, 0.5],
-    [0.448, 0.326, 0.71, 0.32, 0.716, 0.634, 0.454, 0.638, 1.3, 0.5, 0.5],
-    [0.724, 0.32, 1, 0.314, 1, 0.628, 0.73, 0.634, 1.3, 0.5, 0.5],
-    [0, 0.668, 0.268, 0.662, 0.256, 1, 0, 1, 1.3, 0.5, 0.5],
-    [0.282, 0.662, 0.508, 0.656, 0.5, 1, 0.27, 1, 1.3, 0.5, 0.5],
-    [0.522, 0.656, 0.752, 0.652, 0.748, 1, 0.514, 1, 1.3, 0.5, 0.5],
-    [0.766, 0.652, 1, 0.648, 1, 1, 0.762, 1, 1.3, 0.5, 0.5],
-  ], [0.04, 0.47, 0.66, 0.26, 'left'], [0.045, 0.05], [0.89, 0.6, 0.14]),
+  layout('classic7', 'Classic 7-Panel', 'Three cuts, a full-width title band, three cuts.', [
+    ...row(TOP, [0.46, 0.44], [[0.345, 0.325], [0.675, 0.66]]),
+    ...row([0.46, 0.44], [0.735, 0.715]),
+    ...row([0.735, 0.715], FOOT, [[0.33, 0.35], [0.665, 0.685]]),
+  ], zone(0.06, 0.462, 0.88, 0.262), [0.928, 0.588, 0.13]),
+  layout('asym7', 'Asymmetric 7', 'Two offset pairs, a tall title band and a two-cut foot.', [
+    ...row(TOP, [0.28, 0.26], [[0.6, 0.57]]),
+    ...row([0.28, 0.26], [0.53, 0.51], [[0.6, 0.64]]),
+    ...row([0.53, 0.51], [0.81, 0.79]),
+    ...row([0.81, 0.79], FOOT, [[0.52, 0.48]]),
+  ], zone(0.05, 0.522, 0.9, 0.27), [0.885, 0.735, 0.15]),
+  layout('diagonal5', 'Diagonal 5-Panel', 'A wide hero under the title, then four cuts on crossing diagonals.', [
+    ...row(TOP, [0.53, 0.46]),
+    ...row([0.53, 0.46], [0.75, 0.71], [[0.6, 0.47]]),
+    ...row([0.75, 0.71], FOOT, [[0.42, 0.57]]),
+  ], zone(0.06, 0.03, 0.88, 0.235), [0.885, 0.4, 0.15]),
+  layout('classic6', 'Classic 6-Panel', 'Three cuts, a title band and a two-cut foot.', [
+    ...row(TOP, [0.47, 0.45], [[0.35, 0.33], [0.68, 0.665]]),
+    ...row([0.47, 0.45], [0.74, 0.72]),
+    ...row([0.74, 0.72], FOOT, [[0.49, 0.52]]),
+  ], zone(0.06, 0.47, 0.88, 0.255), [0.925, 0.59, 0.13]),
   layout('panorama', 'Panoramic Split', 'A widescreen panorama over a split pair, lettering on the seam.', [
-    [0, 0, 1, 0, 1, 0.47, 0, 0.53, 1.05, 0.5, 0.5],
-    [0, 0.558, 0.49, 0.53, 0.47, 1, 0, 1, 1, 0.5, 0.5],
-    [0.51, 0.528, 1, 0.5, 1, 1, 0.49, 1, 1.15, 0.5, 0.45],
-  ], [0.05, 0.385, 0.8, 0.27, 'center'], [0.055, 0.06], [0.88, 0.82, 0.15]),
-  layout('classic6', 'Classic 6-Panel', 'A tall hero, two wings, a lettering band and two feet.', [
-    [0, 0, 0.262, 0, 0.278, 0.472, 0.004, 0.48, 1.55, 0.44, 0.56],
-    [0.292, 0, 0.708, 0, 0.72, 0.472, 0.304, 0.48, 1.16, 0.5, 0.42],
-    [0.735, 0, 1, 0, 1, 0.47, 0.747, 0.462, 1.08, 0.54, 0.4],
-    [0, 0.486, 1, 0.484, 1, 0.744, 0.002, 0.75, 1.1, 0.58, 0.5],
-    [0, 0.766, 0.49, 0.76, 0.5, 1, 0.004, 1, 1.8, 0.55, 0.35],
-    [0.516, 0.76, 1, 0.754, 1, 1, 0.526, 1, 1.1, 0.48, 0.5],
-  ], [0.05, 0.5, 0.8, 0.234, 'center'], [0.055, 0.052], [0.855, 0.79, 0.145]),
-  layout('mosaic6', 'Neon Mosaic', 'A tall tower cut and five neon shards.', [
-    [0, 0, 0.4, 0, 0.415, 1, 0, 1, 1.24, 0.5, 0.44],
-    [0.43, 0, 0.7, 0, 0.712, 0.318, 0.444, 0.326, 1.8, 0.7, 0.3],
-    [0.727, 0, 1, 0, 1, 0.31, 0.737, 0.318, 1.7, 0.68, 0.7],
-    [0.444, 0.35, 0.72, 0.34, 0.734, 0.662, 0.458, 0.674, 1.16, 0.46, 0.42],
-    [0.474, 0.698, 0.744, 0.688, 0.758, 1, 0.49, 1, 1.7, 0.33, 0.62],
-    [0.776, 0.685, 1, 0.677, 1, 1, 0.79, 1, 1.55, 0.43, 0.58],
-  ], [0.05, 0.5, 0.78, 0.34, 'left'], [0.055, 0.05], [0.855, 0.078, 0.14]),
-  layout('diagonal4', 'Split Diagonal', 'Four cuts slashed by a rising diagonal.', [
-    [0, 0, 0.635, 0, 0.38, 0.52, 0, 0.52, 1.7, 0.48, 0.54],
-    [0.657, 0, 1, 0, 1, 0.52, 0.402, 0.52, 1.6, 0.12, 0.75],
-    [0, 0.546, 0.4, 0.546, 0.672, 1, 0, 1, 1.3, 0.5, 0.55],
-    [0.424, 0.546, 1, 0.546, 1, 1, 0.694, 1, 1.1, 0.58, 0.56],
-  ], [0.052, 0.5, 0.66, 0.33, 'left'], [0.055, 0.058], [0.84, 0.778, 0.15]),
-  layout('triptych3', 'Sunset Triptych', 'Three leaning towers of a postcard.', [
-    [0, 0, 0.312, 0, 0.335, 1, 0, 1, 1.02, 0.46, 0.4],
-    [0.348, 0, 0.664, 0, 0.678, 1, 0.371, 1, 1.4, 0.4, 0.68],
-    [0.692, 0, 1, 0, 1, 1, 0.706, 1, 1.08, 0.52, 0.44],
-  ], [0.05, 0.522, 0.64, 0.33, 'left'], [0.055, 0.06], [0.85, 0.778, 0.15]),
+    ...row(TOP, [0.56, 0.48]),
+    ...row([0.56, 0.48], FOOT, [[0.52, 0.47]]),
+  ], zone(0.06, 0.25, 0.88, 0.24), [0.9, 0.08, 0.13]),
+  layout('tower5', 'Neon Tower', 'One full-height tower cut beside four stacked shards.', [
+    [[0, 0], [0.4, 0], [0.43, 1], [0, 1]],
+    [[0.4, 0], [0.72, 0], [0.7, 0.36], [0.4108, 0.36]],
+    [[0.72, 0], [1, 0], [1, 0.36], [0.7, 0.36]],
+    [[0.4108, 0.36], [1, 0.36], [1, 0.68], [0.4204, 0.68]],
+    [[0.4204, 0.68], [1, 0.68], [1, 1], [0.43, 1]],
+  ], zone(0.45, 0.37, 0.52, 0.3), [0.9, 0.93, 0.12]),
+  layout('triptych3', 'Sunset Triptych', 'Three leaning towers of a postcard, lettering across the foot.', [
+    ...row(TOP, FOOT, [[0.34, 0.31], [0.68, 0.655]]),
+  ], zone(0.05, 0.66, 0.9, 0.22), [0.9, 0.08, 0.13]),
   layout('hero-strips', 'Hero + 3 Strips', 'A widescreen hero over three tilted strips.', [
-    [0, 0, 1, 0, 1, 0.672, 0, 0.692, 1.5, 0.53, 0.54],
-    [0, 0.714, 0.352, 0.7, 0.342, 1, 0, 1, 1.1, 0.58, 0.58],
-    [0.368, 0.698, 0.674, 0.694, 0.668, 1, 0.358, 1, 1.5, 0.2, 0.45],
-    [0.69, 0.692, 1, 0.69, 1, 1, 0.684, 1, 1.6, 0.7, 0.32],
-  ], [0.052, 0.335, 0.7, 0.315, 'left'], [0.055, 0.064], [0.83, 0.085, 0.15]),
-  layout('minimal', 'Widescreen Key Art', 'A single key frame with one small inset.', [
-    [0.03, 0.045, 0.986, 0.02, 0.972, 0.962, 0.02, 0.982, 1.7, 0.48, 0.58],
-    [0.7, 0.7, 0.925, 0.69, 0.935, 0.905, 0.708, 0.918, 1.06, 0.5, 0.34],
-  ], [0.06, 0.285, 0.64, 0.34, 'left'], [0.062, 0.085], [0.81, 0.12, 0.14]),
+    ...row(TOP, [0.66, 0.7]),
+    ...row([0.66, 0.7], FOOT, [[0.34, 0.32], [0.67, 0.69]]),
+  ], zone(0.05, 0.42, 0.9, 0.22), [0.92, 0.09, 0.13]),
+  layout('split4', 'Split Diagonal', 'Four cuts slashed by two crossing diagonals.', [
+    ...row(TOP, [0.52, 0.5], [[0.64, 0.38]]),
+    ...row([0.52, 0.5], FOOT, [[0.4, 0.68]]),
+  ], zone(0.06, 0.385, 0.88, 0.24), [0.9, 0.9, 0.13]),
 ];
 export const layoutById = (id) => LAYOUTS.find((l) => l.id === id) ?? LAYOUTS[0];
 
+const cross = (a, b) => a.x * b.y - a.y * b.x;
+
+// Moves every edge of a convex cut inward: by half a gutter where it meets another cut and by the
+// frame width where it lies on the canvas edge, then re-intersects neighbouring edges.
+export function insetPolygon(points, width, height, inner, outer) {
+  const n = points.length;
+  const area = points.reduce((s, p, i) => s + cross(p, points[(i + 1) % n]), 0);
+  const sign = area > 0 ? 1 : -1;
+  const near = (v, edge) => Math.abs(v - edge) < 0.5;
+  const lines = points.map((p, i) => {
+    const q = points[(i + 1) % n];
+    const dir = { x: q.x - p.x, y: q.y - p.y };
+    const len = Math.hypot(dir.x, dir.y) || 1;
+    const onFrame = [[p.x, q.x, 0], [p.x, q.x, width], [p.y, q.y, 0], [p.y, q.y, height]].some(([a, b, e]) => near(a, e) && near(b, e));
+    const d = onFrame ? outer : inner;
+    return { p: { x: p.x - (dir.y / len) * d * sign, y: p.y + (dir.x / len) * d * sign }, dir };
+  });
+  return lines.map((line, i) => {
+    const prev = lines[(i + n - 1) % n];
+    const den = cross(prev.dir, line.dir);
+    if (Math.abs(den) < 1e-9) return line.p;
+    const t = cross({ x: line.p.x - prev.p.x, y: line.p.y - prev.p.y }, line.dir) / den;
+    return { x: prev.p.x + prev.dir.x * t, y: prev.p.y + prev.dir.y * t };
+  });
+}
+
+const boundsOf = (points) => {
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+};
+
 export function buildGeometry(layout, width, height) {
-  const { title, tagline, badge } = layout.zones;
+  const unit = Math.min(width, height);
+  const gutter = Math.max(4, Math.round(unit * GUTTER));
+  const { title, badge } = layout;
   return {
-    id: layout.id,
-    width,
-    height,
+    id: layout.id, width, height, gutter,
     panels: layout.panels.map((panel, index) => {
-      const points = panel.points.map((p) => ({ x: p.x * width, y: p.y * height }));
-      const xs = points.map((p) => p.x);
-      const ys = points.map((p) => p.y);
-      const box = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
-      return { index, points, focal: panel.focal, box, cx: box.x + box.w / 2, cy: box.y + box.h / 2 };
+      const outer = panel.points.map((p) => ({ x: p.x * width, y: p.y * height }));
+      const points = insetPolygon(outer, width, height, gutter / 2, gutter * 0.9);
+      const box = boundsOf(points);
+      return { index, outer, points, box, cx: box.x + box.w / 2, cy: box.y + box.h / 2 };
     }),
     zones: {
       title: { ...title, x: title.x * width, y: title.y * height, w: title.w * width, h: title.h * height },
-      tagline: { x: tagline.x * width, y: tagline.y * height },
-      badge: { cx: badge.x * width, cy: badge.y * height, radius: (badge.size * Math.min(width, height)) / 2 },
+      badge: { cx: badge.x * width, cy: badge.y * height, radius: (badge.size * unit) / 2 },
     },
   };
 }
@@ -103,12 +128,13 @@ export function tracePanel(ctx, points) {
   ctx.closePath();
 }
 
+// Hit test on the untrimmed cut, so a click on a gutter still picks the nearest panel side.
 export function panelAt(geometry, x, y) {
-  return geometry.panels.find(({ points }) => {
+  return geometry.panels.find(({ outer }) => {
     let inside = false;
-    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-      const a = points[i];
-      const b = points[j];
+    for (let i = 0, j = outer.length - 1; i < outer.length; j = i++) {
+      const a = outer[i];
+      const b = outer[j];
       if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
     }
     return inside;

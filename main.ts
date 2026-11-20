@@ -2,10 +2,15 @@
 // Vice Prism Cover Studio — the make.fun entry for gta6-cover-art-01.
 //
 // The app is this repository's app/ folder: plain static files, no build step, no network
-// request. It paints the user's own photos into GTA-style cover art on a Canvas 2D engine
-// (bilateral + Kuwahara oil paint, XDoG ink, cel planes, gradient-map grade, rim light,
-// halftone), mixes them with six inked Leonida scenes in nine panel layouts, letters the cover
-// and exports PNG or JPG at 1080 x 1080, 1080 x 1350 or 1920 x 1080.
+// request. It paints eight original candid sample photos — and the user's own — into GTA-style
+// cover art on a Canvas 2D engine (bilateral denoise, variance-weighted Kuwahara oil paint, XDoG
+// cel-ink contours, poster value planes, gradient-map grade, rim light, halftone, grain), cuts
+// them into nine panel layouts, letters the cover and exports PNG or JPG at 1080 x 1080,
+// 1080 x 1350 or 1920 x 1080.
+//
+// The four screenshots are the app's own output: three true full-bleed covers straight from its
+// Canvas PNG exporter (?shot=export) at 16:9, 4:5 and 1:1, plus the live studio editor at
+// 1280 x 800. No UI bars sit over a cover shot.
 //
 // This program is only the hand-in. It stages app/ and screenshots/ into the output directory,
 // writes dossier.json with the kit's buildDossier, and prints the gate-facing totals. Node
@@ -22,7 +27,7 @@ import { buildDossier } from './vendor/makefun-app.ts';
 const ENTRY = {
   competition: 'gta6-cover-art-01',
   app: 'Vice Prism Cover Studio',
-  version: '4.0.0',
+  version: '5.0.0',
   runtime: 'Canvas 2D, ES modules, zero dependencies',
 } as const;
 
@@ -32,8 +37,9 @@ const REQUIRED = [
   'index.html', 'styles.css', 'showcase.css',
   'js/app.js', 'js/layouts.js', 'js/looks.js', 'js/editor-state.js', 'js/demos.js',
   'js/canvas-renderer.js', 'js/filters.js', 'js/lettering.js', 'js/photo-subjects.js',
-  'js/art/ink-kit.js', 'js/art/props.js', 'js/art/scenes.js', 'js/exporter.js', 'js/showcase.js',
-  'samples/boulevard.jpg', 'samples/pier.jpg',
+  'js/exporter.js', 'js/showcase.js',
+  'samples/heli.jpg', 'samples/boulevard.jpg', 'samples/rooftop.jpg', 'samples/ocean-drive.jpg',
+  'samples/coupe.jpg', 'samples/speedboat.jpg', 'samples/neon-street.jpg', 'samples/pier.jpg',
   'fonts/vp-display.woff2', 'fonts/vp-text.woff2', 'fonts/vp-text-bold.woff2', 'fonts/vp-editorial.woff2',
 ];
 

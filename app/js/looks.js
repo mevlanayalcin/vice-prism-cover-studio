@@ -1,42 +1,56 @@
 // The look catalogue as plain data: six colour grades, the ink-and-paint recipe and the lettering
-// choices. Each grade carries five gradient-map stops, two accents, a key-light colour, split-tone
-// ends (shadow / highlight) and the photo recipe (map strength, gamma, rim light).
+// choices. A grade carries five gradient-map stops (shadow to light), a three-stop sky it relights
+// blue skies and sea with, two accents for rim light and lettering, split-tone ends and its recipe.
 
-export const FX_DEFAULTS = { paint: 0.86, ink: 0.7, halftone: 0.3, grain: 0.34, grade: 0.9 };
+export const FX_DEFAULTS = { paint: 0.8, ink: 0.72, bands: 0.5, halftone: 0.26, grain: 0.3, grade: 0.9 };
 
 export const FX_META = [
-  { key: 'paint', name: 'Oil paint', hint: 'Kuwahara oil-paint strokes' },
-  { key: 'ink', name: 'Ink contour', hint: 'XDoG brush outlines' },
-  { key: 'halftone', name: 'Halftone', hint: 'print dot screen' },
-  { key: 'grain', name: 'Film grain', hint: 'ISO 400 tooth' },
-  { key: 'grade', name: 'Colour grade', hint: 'split-tone strength' },
+  { key: 'paint', name: 'Oil paint', hint: 'Kuwahara brush strokes' },
+  { key: 'ink', name: 'Ink contour', hint: 'XDoG cel-ink outlines' },
+  { key: 'bands', name: 'Poster bands', hint: 'flat cel value planes' },
+  { key: 'halftone', name: 'Halftone', hint: 'print dot screen in the shadows' },
+  { key: 'grain', name: 'Film grain', hint: '35 mm film tooth' },
+  { key: 'grade', name: 'Colour grade', hint: 'sunset or neon relight strength' },
 ];
 
-const grade = (id, name, accent, accent2, light, shadowTint, highlightTint, stops, look) => ({ id, name, accent, accent2, light, shadowTint, highlightTint, stops, ...look });
+const grade = (id, name, accent, accent2, light, [shadowTint, highlightTint], stops, sky, look) => ({ id, name, accent, accent2, light, shadowTint, highlightTint, stops, sky, ...look });
 
 export const GRADES = [
-  grade('vice-sunset', 'Vice Sunset', '#ff2f87', '#ffb347', '255, 128, 78', [58, 12, 78], [255, 214, 132], ['#2a0b45', '#62187a', '#d92a86', '#ff8a55', '#ffeec0'], { map: 0.24, gamma: 1.04, bloom: 0.26, edge: 0.34, exposure: 1.16 }),
-  grade('neon-midnight', 'Neon Midnight', '#21e6ff', '#ff3ec8', '34, 224, 255', [10, 22, 72], [150, 246, 255], ['#081031', '#27227e', '#6b3ada', '#3fe0f5', '#ff9fe8'], { time: 'night', map: 0.58, sky: 0.7, gamma: 1.4, rim: 0.62, bloom: 0.38, edge: 0.58, exposure: 1.34 }),
-  grade('palm-gold', 'Palm Gold', '#ffbf3c', '#ff7a32', '255, 198, 96', [56, 24, 14], [255, 236, 178], ['#221007', '#5c250c', '#b45a16', '#ffb84a', '#fff5cf'], { map: 0.4, gamma: 1.12, bloom: 0.28, edge: 0.36, exposure: 1.14 }),
-  grade('ocean-drive', 'Ocean Drive', '#22d7c6', '#ffd27a', '86, 240, 220', [6, 36, 48], [222, 255, 232], ['#03191f', '#084650', '#0e8c93', '#4fe0cb', '#ffefc2'], { map: 0.42, gamma: 1.15, bloom: 0.3, edge: 0.4, exposure: 1.12 }),
-  grade('heatwave-coral', 'Heatwave Coral', '#ff4f6d', '#ffa14a', '255, 120, 96', [64, 10, 40], [255, 216, 168], ['#2c0717', '#6e1032', '#d32b55', '#ff8064', '#ffe3b0'], { map: 0.4, gamma: 1.14, bloom: 0.26, edge: 0.36, exposure: 1.12 }),
-  grade('coastal-day', 'Coastal Day', '#17d3c4', '#ff8a6a', '130, 246, 236', [8, 52, 62], [255, 240, 206], ['#05343d', '#0d7f8a', '#3fd0c2', '#ffb98d', '#fff7e6'], { map: 0.2, sky: 0.12, gamma: 1.05, bloom: 0.32, edge: 0.44, exposure: 1.1 }),
+  grade('vice-sunset', 'Vice Sunset', '#ff2f87', '#ffb347', '255, 138, 84', [[70, 16, 92], [255, 214, 140]],
+    ['#1c0736', '#5a1572', '#d42a83', '#ff8c57', '#fff0c8'], ['#3a0f63', '#d8327f', '#ffb55c'],
+    { map: 0.22, skyMix: 0.78, gamma: 1.02, exposure: 1.08, bloom: 0.3, rim: 0.42, edge: 0.5, sister: 'heatwave-coral' }),
+  grade('neon-midnight', 'Neon Midnight', '#21e6ff', '#ff3ec8', '60, 220, 255', [[18, 20, 92], [170, 246, 255]],
+    ['#060a26', '#211c74', '#6a35d6', '#38d8f4', '#ffc4f2'], ['#05061f', '#3a1680', '#ff3aa8'],
+    { night: true, map: 0.5, skyMix: 0.92, gamma: 1.28, exposure: 1.02, bloom: 0.42, rim: 0.85, edge: 0.75, sister: 'ocean-drive' }),
+  grade('palm-gold', 'Palm Gold', '#ffbf3c', '#ff6a3a', '255, 196, 98', [[60, 24, 18], [255, 236, 182]],
+    ['#200f08', '#5e260d', '#b85b16', '#ffb84a', '#fff6d2'], ['#4d1a2e', '#ff7b3d', '#ffd36b'],
+    { map: 0.34, skyMix: 0.7, gamma: 1.08, exposure: 1.08, bloom: 0.3, rim: 0.4, edge: 0.45, sister: 'vice-sunset' }),
+  grade('ocean-drive', 'Ocean Drive', '#22d7c6', '#ff5fb4', '86, 240, 220', [[8, 36, 58], [222, 255, 236]],
+    ['#031a22', '#0a4656', '#11909a', '#56e2cf', '#fff1c8'], ['#1b1257', '#9b2c9a', '#ff9f7a'],
+    { map: 0.36, skyMix: 0.72, gamma: 1.12, exposure: 1.08, bloom: 0.32, rim: 0.55, edge: 0.55, sister: 'neon-midnight' }),
+  grade('heatwave-coral', 'Heatwave Coral', '#ff4f6d', '#ffa14a', '255, 124, 98', [[70, 12, 44], [255, 218, 170]],
+    ['#2a0716', '#701034', '#d62c57', '#ff8466', '#ffe6b6'], ['#5a0f45', '#ff4f6d', '#ffc078'],
+    { map: 0.32, skyMix: 0.74, gamma: 1.08, exposure: 1.08, bloom: 0.28, rim: 0.42, edge: 0.48, sister: 'vice-sunset' }),
+  grade('coastal-day', 'Coastal Day', '#14d6c6', '#ff7a5c', '130, 246, 236', [[10, 54, 70], [255, 240, 208]],
+    ['#05323d', '#0b7f8c', '#3fd2c3', '#ffbb8e', '#fff8e8'], ['#1c9ec9', '#6fe0e6', '#ffd9a8'],
+    { map: 0.14, skyMix: 0.34, gamma: 1.0, exposure: 1.06, bloom: 0.3, rim: 0.36, edge: 0.5, sister: 'palm-gold' }),
 ];
 
 export const gradeById = (id) => GRADES.find((g) => g.id === id) ?? GRADES[0];
-export const swatchCss = (g) => `linear-gradient(135deg, ${g.stops.join(', ')})`;
+export const swatchCss = (g) => `linear-gradient(135deg, ${g.sky[0]}, ${g.sky[1]} 45%, ${g.sky[2]} 70%, ${g.stops[3]})`;
 
 export const FONT_STYLE_OPTIONS = [
   { id: 'chrome', label: 'Horizon Chrome' },
   { id: 'neon', label: 'Neon Tube' },
-  { id: 'block', label: 'Sunset Enamel' },
+  { id: 'sunset', label: 'Sunset Enamel' },
   { id: 'riviera', label: 'Riviera Serif' },
   { id: 'heavy', label: 'Heavy Block' },
 ];
 
 export const TEXT_POSITIONS = [
-  { id: 'auto', label: 'Auto composition' },
-  { id: 'center', label: 'Centre stage' },
-  { id: 'left', label: 'Left stack' },
+  { id: 'auto', label: 'Auto · face-safe' },
+  { id: 'center', label: 'Centre band' },
+  { id: 'top', label: 'Top banner' },
   { id: 'band', label: 'Lower band' },
+  { id: 'left', label: 'Left stack' },
 ];

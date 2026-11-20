@@ -1,19 +1,22 @@
-// Studio wiring: builds the rails, registers the shipped photos and inked scenes, keeps controls,
-// history and canvas in sync, and exports exact-size covers. First load is this shell only: the
-// renderer, art and photo framing stream in with import(), the exporter and showcase on first use.
+// Studio wiring: builds the rails, loads the eight sample photos and the user's own, keeps the
+// controls, history and canvas in sync, and exports exact-size covers. The first load is this
+// shell; the renderer and photo framing stream in with import() at boot, the exporter, quick
+// covers and showcase on first use. ?shot=export shows nothing but the exported cover PNG.
 
 import { buildGeometry, layoutById, LAYOUTS, panelAt, tracePanel } from './layouts.js';
 import { FONT_STYLE_OPTIONS, FX_DEFAULTS, FX_META, GRADES, gradeById, swatchCss, TEXT_POSITIONS } from './looks.js';
-import { assignPack, assignSource, createHistory, createState, mixSources, PACKS, resetPanel, setLayout, setSize, SIZES, sizeOf, SOURCE_IDS, STICKERS, swapPanels } from './editor-state.js';
+import { assignMany, assignSource, createHistory, createState, mixSources, resetPanel, setLayout, setSize, SIZES, sizeOf, SOURCE_IDS, STICKERS, swapPanels } from './editor-state.js';
 
 const $ = (id) => document.getElementById(id);
-const [poster, overlay, stage, posterWrap, boxView, fillAll] = ['poster', 'overlay', 'stage', 'poster-wrap', 'box-view', 'fill-all'].map($);
+const [poster, overlay, stage, posterWrap, boxView, fillAll, compare] = ['poster', 'overlay', 'stage', 'poster-wrap', 'box-view', 'fill-all', 'compare'].map($);
 const assets = new Map();
 const state = createState();
 const history = createHistory(state);
 const thumbs = new Map();
 const lazy = {};
+const uploads = [];
 const CAPTION_FIELDS = { 'title-input': 'title', 'subtitle-input': 'subtitle', 'tagline-input': 'tagline', 'badge-input': 'badge', 'platform-input': 'platform' };
+const MODULES = { renderer: () => import('./canvas-renderer.js'), subjects: () => import('./photo-subjects.js'), exporter: () => import('./exporter.js'), showcase: () => import('./showcase.js'), demos: () => import('./demos.js') };
 let renderer = null;
 let raf = 0;
 let pending = 'preview';
@@ -22,16 +25,17 @@ let swapFrom = null;
 let busy = false;
 let format = 'png';
 let view = 'edit';
-let timers = {};
+let split = 0.5;
+const timers = {};
 
 const setStatus = (text) => ($('status').textContent = text);
 const labelOf = (id) => assets.get(id)?.label ?? id;
 const later = (key, ms, fn) => (clearTimeout(timers[key]), (timers[key] = setTimeout(fn, ms)));
-const MODULES = { renderer: () => import('./canvas-renderer.js'), scenes: () => import('./art/scenes.js'), subjects: () => import('./photo-subjects.js'), exporter: () => import('./exporter.js'), showcase: () => import('./showcase.js'), demos: () => import('./demos.js') };
 const load = (name) => (lazy[name] ??= MODULES[name]());
 const fmtName = () => (format === 'jpeg' ? 'JPG' : 'PNG');
 const active = () => state.panels[state.activePanel];
 const geometry = (w, h) => buildGeometry(layoutById(state.layout), w, h);
+const sourceIds = () => [...uploads, ...SOURCE_IDS].filter((id) => assets.has(id));
 
 function make(tag, cls = '', html = '') {
   const node = Object.assign(document.createElement(tag), { className: cls, innerHTML: html });
@@ -50,16 +54,19 @@ function rail(id, items, cls, paint, pick) {
 
 const loadImage = (src) => new Promise((resolve, reject) => Object.assign(new Image(), { onload: (e) => resolve(e.target), onerror: () => reject(new Error(`could not load ${src}`)), src }));
 
-async function loadSources() {
-  const [{ illustratedAssets }, { PHOTO_SUBJECTS }, ...photos] = await Promise.all([load('scenes'), load('subjects'), ...['boulevard', 'pier'].map((n) => loadImage(new URL(`../samples/${n}.jpg`, import.meta.url).href))]);
-  for (const asset of illustratedAssets()) assets.set(asset.id, asset);
-  ['boulevard', 'pier'].forEach((id, i) => assets.set(id, { id, label: `${id[0].toUpperCase()}${id.slice(1)} photo`, image: photos[i], version: 1, subject: PHOTO_SUBJECTS[id] }));
+async function loadSamples() {
+  const { PHOTO_SAMPLES } = await load('subjects');
+  await Promise.all(PHOTO_SAMPLES.map(async (s) => {
+    const image = await loadImage(new URL(`../samples/${s.id}.jpg`, import.meta.url).href);
+    assets.set(s.id, { ...s, image, version: 1 });
+  }));
 }
 
 async function ensureFonts() {
   try {
     await Promise.all(['900 100px "VP Display"', '700 100px "VP Text"', '400 100px "VP Text"', '700 100px "VP Editorial"'].map((f) => document.fonts.load(f)));
   } catch {
+    // the fallback stacks in lettering.js still letter the cover
   }
 }
 
@@ -78,13 +85,14 @@ function schedule(quality = 'preview') {
   raf ||= requestAnimationFrame(() => {
     raf = 0;
     draw(pending);
+    if (pending === 'draft') later('settle', 260, () => draw('preview'));
   });
 }
 
 function draw(quality = 'preview') {
   if (!renderer) return;
   const { width, height } = sizeOf(state);
-  renderer.renderPoster(poster, { width, height, state, assets, quality });
+  renderer.renderPoster(poster, { width, height, state, assets, quality, record: true });
   drawOverlay();
   if (view === 'box') later('box', quality === 'draft' ? 220 : 0, refreshBox);
 }
@@ -97,28 +105,28 @@ function drawOverlay() {
   const ctx = overlay.getContext('2d');
   const unit = Math.min(width, height);
   const color = swapFrom != null ? '#50e8ff' : '#ff3b8d';
-  const tag = Math.max(13, unit * 0.022);
-  const label = `P${panel.index + 1}${swapFrom != null ? ' ⇄ ?' : ''}`;
+  const tag = Math.max(14, unit * 0.024);
+  const label = `P${panel.index + 1} · ${labelOf(active().source).toUpperCase()}${swapFrom != null ? ' ⇄ ?' : ''}`;
   tracePanel(ctx, panel.points);
-  Object.assign(ctx, { fillStyle: `${color}10`, strokeStyle: color, lineWidth: Math.max(2, unit * 0.0045), shadowColor: color, shadowBlur: unit * 0.02 });
+  Object.assign(ctx, { fillStyle: `${color}12`, strokeStyle: color, lineWidth: Math.max(3, unit * 0.005), shadowColor: color, shadowBlur: unit * 0.02 });
   ctx.fill();
-  ctx.setLineDash([unit * 0.014, unit * 0.009]);
+  ctx.setLineDash([unit * 0.016, unit * 0.01]);
   ctx.stroke();
-  Object.assign(ctx, { shadowBlur: 0, font: `900 ${tag * 0.7}px 'VP Text', sans-serif`, textBaseline: 'middle', fillStyle: color });
+  Object.assign(ctx, { shadowBlur: 0, font: `900 ${tag * 0.66}px 'VP Text', sans-serif`, textBaseline: 'middle', fillStyle: color });
   const tw = ctx.measureText(label).width + tag;
-  const x = Math.min(Math.max(6, panel.points[0].x + tag * 0.4), width - tw - 6);
-  const y = Math.min(Math.max(6, panel.points[0].y + tag * 0.4), height - tag * 2);
+  const x = Math.min(Math.max(6, panel.box.x + tag * 0.5), width - tw - 6);
+  const y = Math.min(Math.max(6, panel.box.y + tag * 0.5), height - tag * 2);
   ctx.beginPath();
-  ctx.roundRect(x, y, tw, tag * 1.4, tag * 0.3);
+  ctx.roundRect(x, y, tw, tag * 1.35, tag * 0.3);
   ctx.fill();
   ctx.fillStyle = '#0a0a0d';
-  ctx.fillText(label, x + tag * 0.5, y + tag * 0.72);
+  ctx.fillText(label, x + tag * 0.5, y + tag * 0.7);
 }
 
 function fitPoster() {
   const { width, height } = sizeOf(state);
   const rect = stage.getBoundingClientRect();
-  const k = Math.min(Math.max(160, rect.width - 40) / width, Math.max(160, rect.height - 44) / height);
+  const k = Math.min(Math.max(160, rect.width - 28) / width, Math.max(160, rect.height - 40) / height);
   posterWrap.style.width = `${Math.round(width * k)}px`;
   posterWrap.style.height = `${Math.round(height * k)}px`;
 }
@@ -127,7 +135,9 @@ function refreshCompare(delay = 0) {
   later('compare', delay, () => {
     const panel = active();
     const asset = panel && assets.get(panel.source);
-    if (renderer && asset) renderer.paintCompare($('compare'), asset, gradeById(panel.gradeOverride !== 'global' ? panel.gradeOverride : state.grade), state.fx);
+    if (!renderer || !asset) return;
+    renderer.paintCompare(compare, asset, gradeById(panel.gradeOverride !== 'global' ? panel.gradeOverride : state.grade), state.fx, split);
+    $('compare-note').textContent = `${asset.label} → GTA paint`;
   });
 }
 
@@ -154,20 +164,21 @@ function refresh(message, refit = false) {
 function paintLayoutThumb(canvas, layout, grade) {
   const [w, h] = [(canvas.width = 120), (canvas.height = 72)];
   const ctx = canvas.getContext('2d');
+  const geo = buildGeometry(layout, w, h);
   ctx.fillStyle = '#0a0a0d';
   ctx.fillRect(0, 0, w, h);
-  layout.panels.forEach((panel, i) => {
-    const g = ctx.createLinearGradient(0, 0, w, h);
-    g.addColorStop(0, grade.stops[(i + 1) % 5]);
-    g.addColorStop(1, grade.stops[(i + 3) % 5]);
-    tracePanel(ctx, panel.points.map((p) => ({ x: p.x * w, y: p.y * h })));
+  geo.panels.forEach((panel, i) => {
+    const g = ctx.createLinearGradient(0, panel.box.y, 0, panel.box.y + panel.box.h);
+    g.addColorStop(0, grade.sky[i % 3]);
+    g.addColorStop(1, grade.stops[2 + (i % 3)]);
+    tracePanel(ctx, panel.points);
     ctx.fillStyle = g;
     ctx.fill();
   });
-  const tz = layout.zones.title;
-  for (const [fill, dy, k, bh] of [['#fff1d0', 0.3, 0.7, 5], [grade.accent, 0.62, 0.45, 4]]) {
+  const tz = geo.zones.title;
+  for (const [fill, dy, k, bh] of [['#fff1d0', 0.32, 0.72, 6], [grade.accent, 0.66, 0.42, 4]]) {
     ctx.fillStyle = fill;
-    ctx.fillRect(tz.x * w, (tz.y + tz.h * dy) * h, tz.w * w * k, bh);
+    ctx.fillRect(tz.x + (tz.w * (1 - k)) / 2, tz.y + tz.h * dy, tz.w * k, bh);
   }
 }
 
@@ -175,17 +186,22 @@ function buildRails() {
   rail('layout-grid', LAYOUTS, 'layout-card', (b, l) => {
     Object.assign(b, { title: `${l.name} — ${l.note}` });
     b.dataset.layout = l.id;
-    b.append(make('canvas'), make('span', '', l.name));
+    b.append(make('canvas'), make('span', '', `${l.name}`));
   }, (l) => {
     setLayout(state, l.id);
     state.activePanel = 0;
-    refresh(`${l.name}: ${l.panels.length} panels · drag any cut to reframe.`, true);
+    refresh(`${l.name}: ${l.panels.length} panels, each photo framed on its subject.`, true);
   });
   rail('size-grid', SIZES, 'size-btn', (b, s) => {
     const r = s.width / s.height;
     b.dataset.size = s.id;
     b.innerHTML = `<i style="width:${r >= 1 ? 20 : 16 * r}px;height:${r >= 1 ? 20 / r : 16}px"></i><strong>${s.ratio}</strong><em>${s.width}×${s.height}</em>`;
-  }, (s) => refresh(`Post size ${setSize(state, s.id) && s.width} × ${s.height} — export stays pixel-exact.`, true));
+  }, (s) => refresh(`Post size ${setSize(state, s.id) && s.width} × ${s.height}: the export is pixel-exact.`, true));
+  rail('export-sizes', SIZES, 'xs-btn', (b, s) => {
+    b.dataset.size = s.id;
+    b.title = `Export ${s.width} × ${s.height} in one click`;
+    b.innerHTML = `<strong>${s.width}×${s.height}</strong><em>${s.ratio} ${s.label}</em>`;
+  }, (s) => triggerExport(s.id));
   rail('grade-list', GRADES, 'grade-btn', (b, g) => {
     b.dataset.grade = g.id;
     b.innerHTML = `<i style="background:${swatchCss(g)}"></i><span>${g.name}</span>`;
@@ -198,7 +214,6 @@ function buildRails() {
     Object.assign(b, { title: s.hint, innerHTML: `<i></i>${s.name}` });
     b.dataset.sticker = s.key;
   }, (s) => refresh(`${s.name} ${(state.stickers[s.key] = !state.stickers[s.key]) ? 'on' : 'off'}.`));
-  rail('pack-row', PACKS, 'pack-btn', (b, p) => (b.textContent = p.label), (p) => refresh(`${assignPack(state, p.sources) && p.label} pack across ${state.panels.length} panels.`));
   $('fx-controls').replaceChildren(...FX_META.map((m) => {
     const row = make('label', 'fx-row', `<span title="${m.hint}">${m.name}</span><input type="range" min="0" max="100" data-fx="${m.key}"><output></output>`);
     const input = row.querySelector('input');
@@ -213,15 +228,15 @@ function buildRails() {
   const options = (id, list) => ($(id).innerHTML = list.map((o) => `<option value="${o.id}">${o.label ?? o.name}</option>`).join(''));
   options('font-select', FONT_STYLE_OPTIONS);
   options('position-select', TEXT_POSITIONS);
-  options('panel-grade', [{ id: 'global', label: 'Global grade' }, ...GRADES]);
+  options('panel-grade', [{ id: 'global', label: 'Cover grade' }, ...GRADES]);
   $('font-select').onchange = (e) => refresh(`${FONT_STYLE_OPTIONS.find((o) => o.id === (state.fontStyle = e.target.value)).label} lettering.`);
-  $('position-select').onchange = (e) => refresh(`Title ${(state.textPosition = e.target.value)}.`);
+  $('position-select').onchange = (e) => refresh(`Title: ${TEXT_POSITIONS.find((o) => o.id === (state.textPosition = e.target.value)).label}.`);
   for (const [id, key] of Object.entries(CAPTION_FIELDS)) {
     $(id).oninput = (e) => {
       state.caption[key] = e.target.value;
       schedule('draft');
     };
-    $(id).onchange = () => refresh();
+    $(id).onchange = () => refresh('Caption updated.');
   }
 }
 
@@ -229,18 +244,19 @@ const refreshLayoutThumbs = () => {
   for (const b of $('layout-grid').children) paintLayoutThumb(b.firstChild, layoutById(b.dataset.layout), gradeById(state.grade));
 };
 
+function placeSource(id) {
+  assignSource(state, id, { all: fillAll.checked });
+  refresh(fillAll.checked ? `${labelOf(id)} fills all ${state.panels.length} panels, each with its own shot.` : `${labelOf(id)} → panel ${state.activePanel + 1}.`);
+}
+
 function buildGallery() {
-  rail('gallery', ['upload', ...SOURCE_IDS].filter((id) => assets.has(id)), 'gallery-tile', (b, id) => {
+  rail('gallery', sourceIds(), 'gallery-tile', (b, id) => {
     const asset = assets.get(id);
-    b.classList.toggle('is-photo', !asset.illustrated);
-    Object.assign(b, { title: `${asset.label} — click to place` });
+    b.classList.toggle('is-upload', uploads.includes(id));
+    Object.assign(b, { title: `${asset.label}${asset.note ? ` — ${asset.note}` : ''}. Click to place in the selected panel.` });
     b.dataset.source = id;
-    b.append(thumbCanvas(id, 96, 62), make('span', '', asset.label));
-  }, (id) => {
-    assignSource(state, (state.lastSource = id), { all: fillAll.checked });
-    $('apply-all').disabled = false;
-    refresh(fillAll.checked ? `${labelOf(id)} in every panel, each with its own crop.` : `${labelOf(id)} → panel ${state.activePanel + 1}.`);
-  });
+    b.append(thumbCanvas(id, 96, 64), make('span', '', asset.label));
+  }, placeSource);
 }
 
 function pickPanel(index) {
@@ -262,14 +278,15 @@ function syncAll() {
   };
   mark('layout-grid', 'layout', (v) => v === layout.id);
   mark('size-grid', 'size', (v) => v === size.id);
+  mark('export-sizes', 'size', (v) => v === size.id);
   mark('grade-list', 'grade', (v) => v === state.grade);
   mark('sticker-list', 'sticker', (v) => !!state.stickers[v], 'on');
   mark('format-row', 'format', (v) => v === format);
   const dims = `${size.width} × ${size.height}`;
   const text = {
     'layout-name': layout.name, 'grade-name': grade.name, 'size-note': `${size.ratio} · ${size.label}`, 'stage-size': `${dims} px`,
-    'stage-spec': `CANVAS 2D · ${layout.panels.length} CUTS · ${grade.name}`, 'export-size-note': dims, 'export-label': `Export ${fmtName()}`,
-    'export-dim': `${dims} · ${size.ratio} · offline`, 'quick-export': `↓ Export ${fmtName()}`, 'font-note': FONT_STYLE_OPTIONS.find((o) => o.id === state.fontStyle)?.label,
+    'stage-spec': `${layout.panels.length} painted panels · ${grade.name}`, 'export-label': `Export ${fmtName()} · ${size.ratio}`,
+    'export-dim': `${dims} px · straight from the canvas`, 'quick-export': `↓ Export ${fmtName()}`, 'font-note': FONT_STYLE_OPTIONS.find((o) => o.id === state.fontStyle)?.label,
   };
   for (const [id, value] of Object.entries(text)) $(id).textContent = value;
   for (const [id, key] of Object.entries(CAPTION_FIELDS)) if (document.activeElement !== $(id)) $(id).value = state.caption[key] ?? '';
@@ -290,13 +307,23 @@ function syncPanel() {
   for (const b of $('panel-list').children) b.classList.toggle('active', +b.dataset.panel === state.activePanel);
   for (const b of $('gallery').children) b.classList.toggle('active', b.dataset.source === panel.source);
   $('active-label').textContent = `PANEL ${String(state.activePanel + 1).padStart(2, '0')} · ${labelOf(panel.source).toUpperCase()}`;
-  $('zoom-range').value = panel.zoom;
-  $('zoom-out').textContent = `${panel.zoom.toFixed(2)}×`;
+  const zoom = panel.manualFocus ? panel.zoom : renderer?.framing[state.activePanel]?.zoom ?? panel.zoom;
+  $('zoom-range').value = zoom;
+  $('zoom-out').textContent = `${zoom.toFixed(2)}×${panel.manualFocus ? '' : ' auto'}`;
   $('rotate-range').value = panel.rotate;
   $('rotate-out').textContent = `${panel.rotate}°`;
   $('flip-btn').classList.toggle('on', !!panel.flip);
+  $('shot-select').value = panel.shot ?? 'medium';
   $('panel-grade').value = panel.gradeOverride || 'global';
   refreshCompare(120);
+}
+
+// A manual edit starts from the crop the smart framing chose, so nothing jumps.
+function takeOver(panel, index) {
+  const plan = renderer?.framing[index];
+  if (!panel.manualFocus && plan) Object.assign(panel, { zoom: plan.fit ? 1 : plan.zoom, focusX: plan.fx, focusY: plan.fy });
+  panel.manualFocus = true;
+  return plan;
 }
 
 function eventPanel(event) {
@@ -306,7 +333,6 @@ function eventPanel(event) {
 }
 
 function bindCanvas() {
-  const clampFocus = (v) => Math.max(-0.35, Math.min(1.35, v));
   overlay.onpointerdown = (event) => {
     const panel = eventPanel(event);
     if (!panel) return;
@@ -321,11 +347,15 @@ function bindCanvas() {
     if (event.pointerId !== drag?.id) return;
     const rect = overlay.getBoundingClientRect();
     const panel = state.panels[drag.panel];
+    const plan = takeOver(panel, drag.panel) ?? { tw: 1, sw: 1, scale: 1, th: 1, sh: 1 };
     const { box } = geometry(overlay.width, overlay.height).panels[drag.panel];
-    const k = Math.max(0.2, panel.zoom) * 1.6;
-    panel.focusX = clampFocus(panel.focusX - ((event.clientX - drag.x) / rect.width) * (overlay.width / (box.w * k)));
-    panel.focusY = clampFocus(panel.focusY - ((event.clientY - drag.y) / rect.height) * (overlay.height / (box.h * k)));
-    panel.manualFocus = true;
+    const scale = plan.fit || plan.scale;
+    const viewW = plan.tw / (plan.sw * scale);
+    const viewH = plan.th / (plan.sh * scale);
+    const dx = (((event.clientX - drag.x) / rect.width) * overlay.width) / box.w;
+    const dy = (((event.clientY - drag.y) / rect.height) * overlay.height) / box.h;
+    panel.focusX = Math.max(0, Math.min(1, panel.focusX - dx * viewW * (panel.flip ? -1 : 1)));
+    panel.focusY = Math.max(0, Math.min(1, panel.focusY - dy * viewH));
     Object.assign(drag, { x: event.clientX, y: event.clientY, moved: true });
     schedule('draft');
   };
@@ -334,7 +364,7 @@ function bindCanvas() {
     const { moved } = drag;
     drag = null;
     overlay.classList.remove('dragging');
-    if (moved) refresh(`Panel ${state.activePanel + 1} reframed — the crop is kept per panel.`);
+    if (moved) refresh(`Panel ${state.activePanel + 1} reframed: the crop is kept per panel.`);
   };
   overlay.addEventListener('wheel', (event) => {
     const panel = eventPanel(event);
@@ -342,27 +372,46 @@ function bindCanvas() {
     const cfg = active();
     if (!cfg) return;
     event.preventDefault();
-    cfg.zoom = Math.min(2.6, Math.max(1, cfg.zoom * Math.exp(-event.deltaY * 0.0012)));
-    cfg.manualFocus = true;
+    takeOver(cfg, state.activePanel);
+    cfg.zoom = Math.min(3, Math.max(1, cfg.zoom * Math.exp(-event.deltaY * 0.0012)));
     syncPanel();
     schedule('draft');
-    later('wheel', 200, () => refresh());
+    later('wheel', 220, () => refresh(`Panel ${state.activePanel + 1} zoom ${cfg.zoom.toFixed(2)}×.`));
   }, { passive: false });
+  let comparing = false;
+  const slide = (event) => {
+    const r = compare.getBoundingClientRect();
+    split = Math.max(0.05, Math.min(0.95, (event.clientX - r.left) / r.width));
+    refreshCompare();
+  };
+  compare.onpointerdown = (event) => {
+    comparing = true;
+    compare.setPointerCapture(event.pointerId);
+    slide(event);
+  };
+  compare.onpointermove = (event) => comparing && slide(event);
+  compare.onpointerup = () => (comparing = false);
 }
 
 function bindTools() {
   const tool = (id, fn) => ($(id).onclick = fn);
-  $('panel-grade').onchange = (e) => refresh(`Panel ${state.activePanel + 1} grade ${(active().gradeOverride = e.target.value)}.`);
-  for (const [id, key, unit] of [['zoom-range', 'zoom', '×'], ['rotate-range', 'rotate', '°']]) {
-    $(id).oninput = () => {
-      const panel = active();
-      panel[key] = +$(id).value;
-      panel.manualFocus ||= key === 'zoom';
-      $(id).nextElementSibling.textContent = `${key === 'zoom' ? panel.zoom.toFixed(2) : panel.rotate}${unit}`;
-      schedule('draft');
-    };
-    $(id).onchange = () => refresh();
-  }
+  $('panel-grade').onchange = (e) => refresh(`Panel ${state.activePanel + 1} grade: ${(active().gradeOverride = e.target.value)}.`);
+  $('shot-select').onchange = (e) => {
+    Object.assign(active(), { shot: e.target.value, manualFocus: false });
+    refresh(`Panel ${state.activePanel + 1}: ${e.target.selectedOptions[0].text.toLowerCase()}, framed on its subject.`);
+  };
+  $('zoom-range').oninput = () => {
+    takeOver(active(), state.activePanel);
+    active().zoom = +$('zoom-range').value;
+    $('zoom-out').textContent = `${active().zoom.toFixed(2)}×`;
+    schedule('draft');
+  };
+  $('rotate-range').oninput = () => {
+    active().rotate = +$('rotate-range').value;
+    $('rotate-out').textContent = `${active().rotate}°`;
+    schedule('draft');
+  };
+  $('zoom-range').onchange = $('rotate-range').onchange = () => refresh();
   tool('flip-btn', () => refresh(`Panel ${state.activePanel + 1} ${(active().flip = !active().flip) ? 'flipped' : 'unflipped'}.`));
   tool('reset-panel', () => refresh(`Panel ${resetPanel(state) && state.activePanel + 1} back to its smart crop.`));
   tool('swap-btn', () => {
@@ -371,16 +420,17 @@ function bindTools() {
     drawOverlay();
     setStatus(swapFrom != null ? `Swap: pick the panel to trade with panel ${swapFrom + 1}.` : 'Swap cancelled.');
   });
-  tool('export-btn', triggerExport);
-  tool('quick-export', triggerExport);
+  tool('export-btn', () => triggerExport());
+  tool('quick-export', () => triggerExport());
   tool('undo-btn', () => travel(-1));
   tool('redo-btn', () => travel(1));
   tool('fx-reset', () => {
     state.fx = { ...FX_DEFAULTS };
     refresh('Ink and paint back to the house recipe.');
   });
-  tool('apply-all', () => state.lastSource && refresh(`${labelOf(assignSource(state, state.lastSource) && state.lastSource)} now fills every panel, each with its own crop.`));
-  tool('mix-btn', () => refresh(`Mixed the gallery across the panels${mixSources(state, SOURCE_IDS) && '.'}`));
+  tool('mix-btn', () => refresh(`Shuffled the photos across the panels${mixSources(state, sourceIds()) && '.'}`));
+  fillAll.onchange = () => fillAll.checked && placeSource(active().source);
+  for (const b of document.querySelectorAll('.quick-btn')) b.onclick = () => setDemo(b.dataset.demo);
   for (const b of $('format-row').children) b.onclick = () => setFormat(b.dataset.format);
   for (const b of $('view-row').children) b.onclick = () => setView(b.dataset.view);
   window.addEventListener('keydown', (event) => {
@@ -396,24 +446,34 @@ function bindTools() {
   });
 }
 
-async function useFile(file) {
-  if (!file) return;
-  if (!file.type.startsWith('image/')) return setStatus('That file is not an image. Choose a JPG, PNG or WEBP.');
-  const url = URL.createObjectURL(file);
-  try {
-    const image = await loadImage(url);
-    const label = file.name.replace(/\.[^.]+$/, '').slice(0, 24) || 'Your photo';
-    const { detectSubject } = await load('subjects');
-    assets.set('upload', { id: 'upload', label, image, version: (assets.get('upload')?.version ?? 0) + 1, subject: detectSubject(image) });
-    assignSource(state, (state.lastSource = 'upload'), { all: fillAll.checked });
-    $('apply-all').disabled = false;
-    buildGallery();
-    refresh(fillAll.checked ? `${label} fills all ${state.panels.length} panels with face-aware crops.` : `${label} → panel ${state.activePanel + 1}, framed on the face.`);
-  } catch {
-    setStatus('That image could not be decoded. Try another JPG, PNG or WEBP.');
-  } finally {
-    URL.revokeObjectURL(url);
+// Reads every dropped or picked image on this machine, finds its subject and places it: one photo
+// goes to the selected panel (or every panel with Fill on), several go to consecutive panels.
+async function useFiles(list) {
+  const files = [...(list ?? [])].filter((f) => f.type.startsWith('image/'));
+  if (!files.length) return setStatus('That is not an image. Choose a JPG, PNG or WEBP.');
+  const { detectSubject } = await load('subjects');
+  const added = [];
+  for (const file of files.slice(0, 12)) {
+    const url = URL.createObjectURL(file);
+    try {
+      const image = await loadImage(url);
+      const id = `upload-${uploads.length + 1}`;
+      const label = file.name.replace(/\.[^.]+$/, '').slice(0, 22) || 'Your photo';
+      assets.set(id, { id, label, note: 'your photo', image, version: 1, subject: detectSubject(image) });
+      uploads.unshift(id);
+      added.push(id);
+    } catch {
+      setStatus(`${file.name} could not be decoded.`);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   }
+  if (!added.length) return;
+  if (added.length === 1) assignSource(state, added[0], { all: fillAll.checked });
+  else assignMany(state, added.reverse());
+  buildGallery();
+  const first = labelOf(added[0]);
+  refresh(added.length > 1 ? `${added.length} photos placed from panel ${state.activePanel + 1} on.` : fillAll.checked ? `${first} fills all ${state.panels.length} panels, each with its own shot.` : `${first} → panel ${state.activePanel + 1}, framed on the face.`);
 }
 
 function bindPhoto() {
@@ -421,7 +481,7 @@ function bindPhoto() {
   const files = (e) => e.dataTransfer?.types?.includes('Files');
   let depth = 0;
   $('file').onchange = async (e) => {
-    await useFile(e.target.files[0]);
+    await useFiles(e.target.files);
     e.target.value = '';
   };
   window.addEventListener('dragenter', (e) => files(e) && (e.preventDefault(), zone.classList.add('over'), depth++));
@@ -432,7 +492,9 @@ function bindPhoto() {
     e.preventDefault();
     depth = 0;
     zone.classList.remove('over');
-    useFile(e.dataTransfer.files[0]);
+    const panel = eventPanel(e);
+    if (panel) state.activePanel = panel.index;
+    useFiles(e.dataTransfer.files);
   });
 }
 
@@ -453,7 +515,7 @@ async function setView(next) {
   if (next === 'showcase') {
     const layout = layoutById(state.layout);
     (await load('showcase')).openShowcase({ state, sizes: SIZES, renderCover: coverAt, grade: gradeById(state.grade), layoutName: layout.name, panels: layout.panels.length, onExport: triggerExport });
-    return setStatus('Showcase: the cover at export resolution, with every post size. Esc to return.');
+    return setStatus('Showcase: the cover at export resolution with all three post sizes. Esc to return.');
   }
   view = next;
   for (const b of $('view-row').children) b.classList.toggle('active', b.dataset.view === view);
@@ -461,7 +523,7 @@ async function setView(next) {
   boxView.hidden = view !== 'box';
   if (view !== 'box') return fitPoster(), drawOverlay();
   await refreshBox();
-  setStatus("3D box case: the live cover wrapped on a collector's case. Edits update it.");
+  setStatus("3D box: the live cover wrapped on a collector's case. Edits update it.");
 }
 
 function setFormat(id) {
@@ -469,16 +531,23 @@ function setFormat(id) {
   syncAll();
 }
 
-const exportNow = async (fmt = format, download = true) => (await load('exporter')).exportCover(state, assets, { format: fmt, download });
+async function setDemo(name) {
+  (await load('demos')).applyDemo(state, name);
+  refreshLayoutThumbs();
+  refresh(`${document.querySelector(`[data-demo="${name}"]`)?.textContent ?? name} loaded: every panel a different photo.`, true);
+}
 
-function triggerExport() {
+const exportNow = async (fmt = format, download = true, size) => (await load('exporter')).exportCover(state, assets, { format: fmt, download, size });
+
+function triggerExport(size) {
   if (busy) return;
   busy = true;
   $('export-btn').classList.add('is-busy');
-  setStatus(`Painting ${sizeOf(state).width} × ${sizeOf(state).height} at export resolution…`);
+  const target = SIZES.find((s) => s.id === size) ?? sizeOf(state);
+  setStatus(`Painting ${target.width} × ${target.height} at full resolution…`);
   requestAnimationFrame(async () => {
     try {
-      const { width, height, bytes, name } = await exportNow();
+      const { width, height, bytes, name } = await exportNow(format, true, target.id);
       window.__lastExport = { width, height, bytes, name, format };
       setStatus(`Exported ${name} · ${(bytes / 1048576).toFixed(2)} MB · ${width} × ${height}.`);
     } catch (error) {
@@ -490,8 +559,18 @@ function triggerExport() {
   });
 }
 
+// ?shot=export: the page becomes the exported PNG itself, full-bleed at its own pixel size.
+async function showExport() {
+  const { url, width, height, bytes } = await (await load('exporter')).exportDataUrl(state, assets);
+  const img = Object.assign(new Image(), { src: url, width, height, alt: 'Exported cover' });
+  await img.decode();
+  document.body.replaceChildren(img);
+  document.body.className = 'export-shot';
+  window.__exportPng = { url, width, height, bytes };
+}
+
 async function boot() {
-  const heavy = Promise.all([load('renderer'), loadSources(), ensureFonts()]);
+  const heavy = Promise.all([load('renderer'), loadSamples(), ensureFonts()]);
   buildRails();
   [renderer] = await heavy;
   buildGallery();
@@ -506,6 +585,19 @@ async function boot() {
   if (param('grade', GRADES)) state.grade = params.get('grade');
   const panel = +params.get('panel');
   if (panel >= 1 && panel <= state.panels.length) state.activePanel = panel - 1;
+  window.__vp = {
+    state, assets, history, setFormat, setView, pickPanel, setDemo, useFiles,
+    swap: (a, b) => refresh(`Swapped panel ${swapPanels(state, a, b) && a + 1} with panel ${b + 1}.`),
+    undo: () => travel(-1),
+    redo: () => travel(1),
+    exportImage: (fmt = format, size) => exportNow(fmt, false, size),
+    render: (quality) => draw(quality),
+  };
+  if (params.get('shot') === 'export') {
+    await showExport();
+    window.__shotReady = true;
+    return;
+  }
   history.reset();
   commit();
   refreshLayoutThumbs();
@@ -513,15 +605,6 @@ async function boot() {
   fitPoster();
   draw();
   if (['box', 'showcase'].includes(params.get('view'))) await setView(params.get('view'));
-  window.__vp = {
-    state, assets, history, setFormat, setView, pickPanel,
-    setDemo: async (name) => refresh(`${(await load('demos')).applyDemo(state, name) && name} demo loaded.`, true),
-    swap: (a, b) => refresh(`Swapped panel ${swapPanels(state, a, b) && a + 1} with panel ${b + 1}.`),
-    undo: () => travel(-1),
-    redo: () => travel(1),
-    exportImage: (fmt = format) => exportNow(fmt, false),
-    render: (quality) => draw(quality),
-  };
   window.addEventListener('resize', () => (view === 'box' ? refreshBox() : (fitPoster(), drawOverlay())));
   window.__shotReady = true;
 }
