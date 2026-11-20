@@ -1,11 +1,9 @@
-// Eight original Leonida illustrations, each composed edge to edge in a 1600 × 1000 stage so any
-// crop a panel takes lands on painted content. A scene is a vector draw function, not a bitmap:
-// the renderer calls it at the panel's own resolution, so every cut is crisp at every export
-// size. `focus` is the subject box (normalised) the crop planner keeps whole.
+// Six original Leonida illustrations, each a vector draw function over a 1600 × 1000 stage, drawn
+// at the panel's own resolution so every cut is crisp. `focus` is the subject box the crop keeps
+// whole; a night grade relights the day and dusk scenes so a neon cover never mixes in daylight.
 
-import { INK, bandedSun, cloudStreaks, flare, glow, halftone, hatch, lin, rad, reflections, rng, sky } from './ink-kit.js';
-import { car, decoHotel, flamingo, helicopter, hexA, lightTrails, palm, sea, skyline, speedboat } from './props.js';
-import { FIGURE_PALETTES, driver, haloBehind, heiress, standingFigure } from './figures.js';
+import { INK, P, bandedSun, cloudStreaks, flare, glow, halftone, hatch, lin, rad, reflections, sky } from './ink-kit.js';
+import { car, decoHotel, flamingo, helicopter, lightTrails, palm, sea, skyline, speedboat } from './props.js';
 
 export const STAGE_W = 1600;
 export const STAGE_H = 1000;
@@ -14,13 +12,10 @@ const SUNSET_SKY = ['#1d0836', '#5a1468', '#c4247e', '#ff5f6d', '#ffb15a', '#ffe
 const NIGHT_SKY = ['#05051a', '#140c3a', '#3a1470', '#7a1f8a', '#d0307e'];
 const DAY_SKY = ['#3fb8d6', '#7fd6df', '#c6efe6', '#fff1d6'];
 
-// Time of day is set per draw: a night grade re-lights the sunset and daylight scenes, so a
-// Neon Night cover never mixes a noon harbour with a midnight boulevard.
 let night = false;
 const tone = (day, dark) => (night ? dark : day);
 const MOON = ['#fff6ff', '#ffb0e8', '#ff3fa4'];
 
-/** The sun by day and dusk; a banded neon moon at night. */
 function sun(ctx, x, y, r, stops, cuts) {
   if (!night) return bandedSun(ctx, x, y, r, stops, cuts);
   bandedSun(ctx, x, y, r * 0.8, MOON, cuts);
@@ -38,52 +33,6 @@ function sunsetGround(ctx, horizon) {
 }
 const CITY = () => (night ? { body: ['#22145a', '#0a0620'], lit: ['#ff7ad0', '#7af0ff', '#ffd38a'], windowChance: 0.45 } : {});
 
-/** The Heiress at golden hour: banded sun behind her, palms and a hazy skyline. */
-function viceHeiress(ctx) {
-  sunsetGround(ctx, 1000);
-  sun(ctx, 1120, 520, 300, ['#fff4b8', '#ffb347', '#ff3f7f']);
-  skyline(ctx, -20, 1640, 820, { seed: 11, minH: 90, maxH: 300, body: ['#7a1f6a', '#3a0c42'], windowChance: 0.18, haze: tone('rgba(255,120,110,0.45)', 'rgba(120,40,200,0.4)'), ...CITY() });
-  sea(ctx, 0, 820, STAGE_W, 180, tone(['#ff8a6a', '#7a1f6a'], ['#3a1a7a', '#0a0620']), { seed: 6, glints: tone('#ffe3a0', '#ff7ad0') });
-  const rim = tone('#ffb15a', '#ff3fa4');
-  palm(ctx, 1450, 1010, 820, { lean: -0.2, rim, seed: 6 });
-  palm(ctx, 1290, 1010, 560, { lean: -0.32, rim, seed: 9 });
-  palm(ctx, 90, 1010, 760, { lean: 0.22, rim, seed: 3 });
-  hatch(ctx, 0, 0, 1600, 1000, 34, -0.35, 'rgba(255,230,190,0.08)', 3, 4);
-  haloBehind(ctx, 640, 470, 520, tone('rgba(255,190,120,0.55)', 'rgba(255,63,164,0.45)'));
-  heiress(ctx, 640, 1000, 1000, tone(FIGURE_PALETTES.sunset, FIGURE_PALETTES.neon));
-  vignette(ctx, 0.4);
-}
-
-/** The Driver after midnight: neon deco fronts, rain-slick light and a cyan rim. */
-function nightDriver(ctx) {
-  sky(ctx, STAGE_W, STAGE_H, NIGHT_SKY, 0);
-  skyline(ctx, -20, 1640, 760, { seed: 31, minH: 260, maxH: 640, body: ['#1c1446', '#0a0620'], lit: ['#ff7ad0', '#7af0ff', '#ffd38a'], windowChance: 0.42 });
-  decoHotel(ctx, 40, 360, 360, 560, { night: true, sign: 'NOCTURNE', signColor: '#ff3fa4', trim: '#38e8ff' });
-  decoHotel(ctx, 1240, 330, 340, 600, { night: true, sign: 'PALMS', signColor: '#38e8ff', trim: '#ff3fa4', seed: 5 });
-  ctx.fillStyle = lin(ctx, 0, 760, 0, 1000, ['#1a0a3a', '#05030c']);
-  ctx.fillRect(0, 900, STAGE_W, 100);
-  reflections(ctx, 0, 900, STAGE_W, 100, ['#ff3fa4', '#38e8ff', '#ffd38a'], 8, 90);
-  // rain streaks
-  ctx.save();
-  ctx.strokeStyle = 'rgba(180,220,255,0.22)';
-  ctx.lineWidth = 2;
-  const r = rng(77);
-  ctx.beginPath();
-  for (let i = 0; i < 220; i++) {
-    const x = r() * 1700;
-    const y = r() * 1000;
-    ctx.moveTo(x, y);
-    ctx.lineTo(x - 16, y + 60);
-  }
-  ctx.stroke();
-  ctx.restore();
-  haloBehind(ctx, 900, 460, 560, 'rgba(120,60,255,0.55)');
-  glow(ctx, 1240, 360, 420, 'rgba(56,232,255,0.5)', 0.8);
-  driver(ctx, 900, 1000, 1000, FIGURE_PALETTES.neon, true);
-  vignette(ctx, 0.5);
-}
-
-/** A wedge coupe flat out along the sunset causeway. */
 function sunsetRun(ctx) {
   sunsetGround(ctx, 640);
   sun(ctx, 800, 520, 260, ['#fff4b8', '#ffb347', '#ff3f7f'], 7);
@@ -91,7 +40,6 @@ function sunsetRun(ctx) {
   skyline(ctx, -40, 560, 600, { seed: 43, minH: 80, maxH: 260, body: ['#5a145a', '#2a0838'], windowChance: 0.3, ...CITY() });
   sea(ctx, 0, 600, STAGE_W, 200, tone(['#ff7a6a', '#9a2a7a', '#3a0c42'], ['#3a1a8a', '#1a0a4a', '#07041a']), { seed: 9, glints: tone('#ffe3a0', '#7af0ff') });
   reflections(ctx, 560, 610, 480, 180, tone(['#ffd38a', '#ff9a6a'], ['#ff7ad0', '#7af0ff']), 3, 60);
-  // causeway deck and rail
   ctx.fillStyle = lin(ctx, 0, 780, 0, 1000, ['#2a0a36', '#12041a']);
   ctx.fillRect(0, 780, STAGE_W, 220);
   ctx.fillStyle = '#ff7a8a';
@@ -109,23 +57,17 @@ function sunsetRun(ctx) {
   vignette(ctx, 0.35);
 }
 
-/** Neon boulevard: deco hotels, wet asphalt and a muscle coupe idling under the signs. */
 function neonBoulevard(ctx) {
   sky(ctx, STAGE_W, 700, NIGHT_SKY, 0);
   skyline(ctx, 300, 1300, 760, { seed: 51, minH: 380, maxH: 660, body: ['#22145a', '#0c0626'], lit: ['#ff7ad0', '#7af0ff'], windowChance: 0.45 });
   decoHotel(ctx, -20, 160, 440, 600, { night: true, sign: 'CORAL', signColor: '#ff3fa4', trim: '#38e8ff', seed: 8 });
   decoHotel(ctx, 1180, 140, 440, 620, { night: true, sign: 'OASIS', signColor: '#38e8ff', trim: '#ffd36a', seed: 9 });
-  // street, kerb neon and mirrored lights
   ctx.fillStyle = lin(ctx, 0, 740, 0, 1000, ['#2a0f52', '#07041a']);
   ctx.fillRect(0, 740, STAGE_W, 260);
   reflections(ctx, 0, 760, STAGE_W, 240, ['#ff3fa4', '#38e8ff', '#ffd38a', '#b46aff'], 12, 140);
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-  ctx.lineWidth = 6;
+  Object.assign(ctx, { strokeStyle: 'rgba(255,255,255,0.18)', lineWidth: 6 });
   ctx.setLineDash([60, 50]);
-  ctx.beginPath();
-  ctx.moveTo(0, 960);
-  ctx.lineTo(STAGE_W, 960);
-  ctx.stroke();
+  ctx.stroke(P('M0 960H1600'));
   ctx.setLineDash([]);
   palm(ctx, 470, 760, 600, { lean: 0.12, rim: '#ff3fa4', seed: 21, color: '#07041a' });
   palm(ctx, 1140, 760, 640, { lean: -0.14, rim: '#38e8ff', seed: 22, color: '#07041a' });
@@ -134,7 +76,6 @@ function neonBoulevard(ctx) {
   vignette(ctx, 0.45);
 }
 
-/** Speedboat run across turquoise water, skyline and a chase helicopter behind. */
 function harborChase(ctx) {
   sky(ctx, STAGE_W, 520, tone(['#2a7fc8', '#62c7e0', '#ffd6a0', '#ff9a7a'], NIGHT_SKY), 6);
   sun(ctx, 300, 400, 150, ['#fff7d0', '#ffc46a', '#ff7a6a'], 5);
@@ -149,7 +90,6 @@ function harborChase(ctx) {
   vignette(ctx, 0.3);
 }
 
-/** Searchlight night: a helicopter combs the rooftops of a dense neon downtown. */
 function heliSearch(ctx) {
   sky(ctx, STAGE_W, STAGE_H, ['#03030f', '#0e0a30', '#2a1060', '#6a1a7a'], 0);
   ctx.fillStyle = '#f4f0ff';
@@ -165,7 +105,6 @@ function heliSearch(ctx) {
   vignette(ctx, 0.5);
 }
 
-/** Riviera morning: a pastel deco hotel, flamingos in the shallows, striped umbrellas. */
 function flamingoRiviera(ctx) {
   sky(ctx, STAGE_W, 700, tone(DAY_SKY, NIGHT_SKY), 5);
   if (night) sun(ctx, 1300, 160, 110, MOON, 4);
@@ -179,24 +118,16 @@ function flamingoRiviera(ctx) {
   for (const [ux, c1, c2] of [[300, '#ff5a7a', '#fff4e6'], [1300, '#25c7c0', '#fff4e6']]) {
     ctx.fillStyle = INK;
     ctx.fillRect(ux - 4, 640, 8, 140);
+    const shade = P(`M${ux - 150} 650Q${ux} 540 ${ux + 150} 650Z`);
     ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(ux - 150, 650);
-    ctx.quadraticCurveTo(ux, 540, ux + 150, 650);
-    ctx.closePath();
-    ctx.clip();
+    ctx.clip(shade);
     for (let i = 0; i < 6; i++) {
       ctx.fillStyle = i % 2 ? c1 : c2;
       ctx.fillRect(ux - 150 + i * 50, 520, 50, 140);
     }
     ctx.restore();
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = INK;
-    ctx.beginPath();
-    ctx.moveTo(ux - 150, 650);
-    ctx.quadraticCurveTo(ux, 540, ux + 150, 650);
-    ctx.closePath();
-    ctx.stroke();
+    Object.assign(ctx, { lineWidth: 5, strokeStyle: INK });
+    ctx.stroke(shade);
   }
   palm(ctx, 1520, 820, 760, { lean: -0.22, seed: 41, color: tone('#0e2a30', '#07041a'), rim: tone('#fff6d0', '#38e8ff') });
   palm(ctx, 80, 820, 700, { lean: 0.2, seed: 42, color: tone('#0e2a30', '#07041a'), rim: tone('#fff6d0', '#ff3fa4') });
@@ -207,7 +138,6 @@ function flamingoRiviera(ctx) {
   vignette(ctx, 0.22);
 }
 
-/** The getaway: a lone figure by a muscle coupe, cut out against a giant dusk sun. */
 function getawayDusk(ctx) {
   sunsetGround(ctx, 760);
   sun(ctx, 760, 520, 360, ['#fff4b8', '#ffb347', '#ff3f7f'], 8);
@@ -225,10 +155,22 @@ function getawayDusk(ctx) {
   vignette(ctx, 0.4);
 }
 
+function standingFigure(ctx, x, y, h, { rim = '#ff8a5b', body = INK, flip = false } = {}) {
+  const k = h / 1000;
+  const shape = P('M512 30C556 30 582 62 580 104C578 140 562 164 544 172L548 192C620 204 664 232 672 300L688 470Q690 520 660 540L640 560L632 600L628 760L660 984L590 992L540 690L514 600L494 692L468 990L398 984L420 760L410 600L404 560L384 540Q356 520 360 470L376 300C384 232 428 204 496 192L498 172C478 162 462 136 464 102C466 60 480 30 512 30Z');
+  for (const [dx, color] of [[-9, rim], [0, body]]) {
+    ctx.save();
+    ctx.translate(x + dx * k, y);
+    ctx.scale(flip ? -k : k, k);
+    ctx.translate(-520, -1000);
+    ctx.fillStyle = color;
+    ctx.fill(shape);
+    ctx.restore();
+  }
+}
+
 export const SCENES = [
-  { id: 'vice-heiress', label: 'The Heiress', mood: 'sunset', focus: { x: 0.4, y: 0.47, w: 0.26, h: 0.52 }, draw: viceHeiress },
   { id: 'sunset-run', label: 'Sunset Run', mood: 'sunset', focus: { x: 0.51, y: 0.82, w: 0.62, h: 0.3 }, draw: sunsetRun },
-  { id: 'night-driver', label: 'Night Driver', mood: 'neon', focus: { x: 0.56, y: 0.46, w: 0.26, h: 0.52 }, draw: nightDriver },
   { id: 'neon-boulevard', label: 'Neon Boulevard', mood: 'neon', focus: { x: 0.5, y: 0.78, w: 0.58, h: 0.3 }, draw: neonBoulevard },
   { id: 'harbor-chase', label: 'Harbor Chase', mood: 'coast', focus: { x: 0.6, y: 0.48, w: 0.62, h: 0.62 }, draw: harborChase },
   { id: 'heli-search', label: 'Searchlight', mood: 'neon', focus: { x: 0.52, y: 0.4, w: 0.42, h: 0.4 }, draw: heliSearch },
@@ -236,7 +178,6 @@ export const SCENES = [
   { id: 'getaway-dusk', label: 'Getaway', mood: 'sunset', focus: { x: 0.56, y: 0.74, w: 0.56, h: 0.42 }, draw: getawayDusk },
 ];
 
-/** Every scene as a gallery asset the renderer can draw at any size. */
 export function illustratedAssets() {
   return SCENES.map((s) => ({
     ...s,
@@ -254,5 +195,3 @@ export function illustratedAssets() {
     },
   }));
 }
-
-export { hexA };

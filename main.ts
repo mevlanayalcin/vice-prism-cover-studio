@@ -2,14 +2,14 @@
 // Vice Prism Cover Studio — the make.fun entry for gta6-cover-art-01.
 //
 // The app is this repository's app/ folder: plain static files, no build step, no network
-// request. It composes an original multi-panel cover from the user's own photos and eight
-// hand-inked vector Leonida illustrations on a Canvas 2D pipeline, lettering included, and
-// exports PNG or JPG at 1080 x 1080, 1080 x 1350 or 1920 x 1080. Photos are framed around the
-// detected face so no cut ever slices a head; scenes keep their subject box whole.
+// request. It paints the user's own photos into GTA-style cover art on a Canvas 2D engine
+// (bilateral + Kuwahara oil paint, XDoG ink, cel planes, gradient-map grade, rim light,
+// halftone), mixes them with six inked Leonida scenes in nine panel layouts, letters the cover
+// and exports PNG or JPG at 1080 x 1080, 1080 x 1350 or 1920 x 1080.
 //
 // This program is only the hand-in. It stages app/ and screenshots/ into the output directory,
-// writes dossier.json with the kit's buildDossier, and prints the gate-facing totals so a run
-// can be checked without opening a browser. Node standard library only.
+// writes dossier.json with the kit's buildDossier, and prints the gate-facing totals. Node
+// standard library only.
 //
 //   MAKEFUN_OUTPUT_DIR=out node main.ts        # outside the grader, out stands in for /output
 
@@ -22,33 +22,19 @@ import { buildDossier } from './vendor/makefun-app.ts';
 const ENTRY = {
   competition: 'gta6-cover-art-01',
   app: 'Vice Prism Cover Studio',
-  version: '3.0.0',
+  version: '4.0.0',
   runtime: 'Canvas 2D, ES modules, zero dependencies',
 } as const;
 
 // The files the entry cannot work without. A missing one is an author error, not a gate result,
 // so the run stops with the path instead of shipping a broken app.
 const REQUIRED = [
-  'index.html',
-  'styles.css',
-  'js/app.js',
-  'js/layouts.js',
-  'js/canvas-renderer.js',
-  'js/lettering.js',
-  'js/looks.js',
-  'js/filters.js',
-  'js/editor-state.js',
-  'js/photo-subjects.js',
-  'js/showcase.js',
-  'js/art/ink-kit.js',
-  'js/art/props.js',
-  'js/art/figures.js',
-  'js/art/scenes.js',
-  'js/exporter.js',
-  'fonts/vp-display.woff2',
-  'fonts/vp-text.woff2',
-  'fonts/vp-text-bold.woff2',
-  'fonts/vp-editorial.woff2',
+  'index.html', 'styles.css', 'showcase.css',
+  'js/app.js', 'js/layouts.js', 'js/looks.js', 'js/editor-state.js', 'js/demos.js',
+  'js/canvas-renderer.js', 'js/filters.js', 'js/lettering.js', 'js/photo-subjects.js',
+  'js/art/ink-kit.js', 'js/art/props.js', 'js/art/scenes.js', 'js/exporter.js', 'js/showcase.js',
+  'samples/boulevard.jpg', 'samples/pier.jpg',
+  'fonts/vp-display.woff2', 'fonts/vp-text.woff2', 'fonts/vp-text-bold.woff2', 'fonts/vp-editorial.woff2',
 ];
 
 const SHOT_LIMITS = { count: 4, bytes: 262144 };
@@ -148,6 +134,15 @@ for (const name of stagedShots) {
   if (bytes > SHOT_LIMITS.bytes) fail(`screenshots/${name} is ${bytes} bytes, over ${SHOT_LIMITS.bytes}`);
 }
 if (dossierBytes > 1.5 * 1024 * 1024) fail(`dossier.json is ${dossierBytes} bytes, over 1.5 MiB`);
+// The judge reads the source text whole only while it fits the 160 KiB cap; a cut line means an
+// author error here, so the run refuses to ship a dossier whose source was truncated.
+if (dossier.includes('[Cut at ')) fail('dossier source text was cut at the cap: trim app/ sources');
+const sourceBytes = (dir: string): number => readdirSync(dir, { withFileTypes: true }).reduce((sum, d) => {
+  const full = join(dir, d.name);
+  if (d.isDirectory()) return d.name === 'vendor' ? sum : sum + sourceBytes(full);
+  return /\.(html|m?js|css|json|glsl|vert|frag|wgsl)$/.test(d.name) && !/\.min\.(m?js|css)$/.test(d.name) ? sum + statSync(full).size : sum;
+}, 0);
+const appSource = sourceBytes(join(out, 'app'));
 
 const mib = (bytes: number) => (bytes / (1024 * 1024)).toFixed(2);
 const kib = (bytes: number) => (bytes / 1024).toFixed(1);
@@ -157,5 +152,6 @@ console.log(`${ENTRY.runtime} · original art · 100% offline`);
 console.log(`app/         ${appStats.files} files, ${appStats.entries} entries, ${mib(appStats.bytes)} MiB`);
 console.log(`largest      app/${appStats.largest.path} (${kib(appStats.largest.bytes)} KiB)`);
 console.log(`screenshots/ ${stagedShots.length} files, ${kib(shotStats.bytes)} KiB — ${stagedShots.join(', ')}`);
+console.log(`source text  ${kib(appSource)} KiB of ${kib(DOSSIER_TEXT_MAX)} KiB cap · whole, nothing cut`);
 console.log(`dossier.json ${kib(dossierBytes)} KiB · sha256 ${digest.slice(0, 16)}`);
 console.log(`output       ${out}`);

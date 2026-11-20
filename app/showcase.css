@@ -1,0 +1,47 @@
+/* Showcase and 3D box case, loaded with showcase.js on first use. */
+.box3d{position:relative;width:var(--w);height:var(--h);perspective:1400px}
+.box3d-case{position:absolute;inset:0;transform-style:preserve-3d}
+.box3d-face{position:absolute;backface-visibility:hidden}
+.box3d-front{inset:0;transform:translateZ(calc(var(--d)/2));overflow:hidden;border-radius:2px 6px 6px 2px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.box3d-front canvas{width:100%;height:100%;display:block}
+.box3d-sheen{position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.26),rgba(255,255,255,0) 32%,rgba(255,255,255,0) 70%,rgba(255,255,255,.12))}
+.box3d-spine{top:0;left:0;width:var(--d);height:var(--h);transform:translateX(calc(var(--d)/-2)) rotateY(-90deg);display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:8px 0;color:#0a0a0d;overflow:hidden}
+.box3d-spine b,.box3d-spine span{font-family:'VP Display',sans-serif;font-weight:900}
+.box3d-spine b{color:#fff;font-size:calc(var(--d)*.42)}
+.box3d-spine span{writing-mode:vertical-rl;font-size:calc(var(--d)*.5);letter-spacing:.06em;white-space:nowrap}
+.box3d-spine em{font-weight:900;font-size:calc(var(--d)*.3);color:#fff;background:#0a0a0d;padding:2px 3px;border-radius:3px}
+.box3d-top{left:0;top:0;width:var(--w);height:var(--d);transform:translateY(calc(var(--d)/-2)) rotateX(90deg);background:linear-gradient(90deg,#2a2230,#4a3d52)}
+.box3d-back{inset:0;transform:translateZ(calc(var(--d)/-2)) rotateY(180deg);background:#120c16}
+.box3d-floor{position:absolute;left:4%;right:-10%;bottom:-26px;height:40px;background:radial-gradient(closest-side,rgba(0,0,0,.75),transparent);filter:blur(4px);transform:translateZ(-1px)}
+
+.showcase{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;background:radial-gradient(60% 70% at 50% 38%,#2a1236,#0a0a0d 75%)}
+.sc-bar{height:46px;flex:none;display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--line);background:rgba(10,10,13,.7)}
+.sc-brand{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:900;letter-spacing:.2em}
+.sc-brand i{width:20px;height:18px}
+.sc-brand b{color:var(--gold);letter-spacing:.12em}
+.sc-meta{flex:1;text-align:center;font-size:9px;letter-spacing:.12em;color:#cdbfd2;font-weight:400}
+.sc-meta em{color:#0a0a0d;background:#4ff0b8;padding:2px 6px;border-radius:4px;font-weight:900;margin-right:6px}
+.sc-actions{display:flex;gap:6px}
+.sc-actions button{border:1px solid var(--line-2);background:rgba(255,255,255,.05);border-radius:8px;padding:6px 11px;font-size:9px;font-weight:900;letter-spacing:.1em}
+.sc-stage{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px 18px}
+.sc-hero{margin:0;line-height:0;box-shadow:0 30px 80px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.12),0 0 120px rgba(255,59,141,.18)}
+.sc-hero canvas{display:block}
+.is-wide .sc-bar{height:38px}
+.is-wide .sc-stage{gap:7px;padding:8px 10px}
+.is-wide .sc-hero canvas{width:min(calc(100vw - 20px),calc((100vh - 122px)*16/9));height:auto}
+.is-wide .sc-size canvas{height:50px}
+.sc-box .box3d{margin:0 10px 0 4px}
+.sc-sizes{display:flex;gap:10px;align-items:flex-end}
+.sc-size{margin:0;display:flex;flex-direction:column;align-items:center;gap:3px;opacity:.8}
+.sc-size canvas{height:64px;width:auto;display:block;box-shadow:0 6px 18px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.1)}
+.sc-size.on{opacity:1}
+.sc-size.on canvas{box-shadow:0 0 0 2px var(--accent),0 6px 18px rgba(0,0,0,.6)}
+.sc-size figcaption{font-size:7.5px;letter-spacing:.1em;color:var(--muted)}
+.sc-size figcaption b{color:#fff;margin-right:4px}
+.is-tall .sc-stage{flex-direction:row;gap:34px}
+.is-tall .sc-hero canvas{height:calc(100vh - 74px);width:auto}
+.sc-side{display:flex;flex-direction:column;align-items:center;gap:22px}
+.sc-spec{display:grid;gap:3px;text-align:center}
+.sc-spec b{font-size:16px;letter-spacing:.14em}
+.sc-spec span{font-size:10px;color:#ffd9a0;letter-spacing:.12em;font-weight:400}
+.sc-spec em{font-size:8px;color:var(--muted);letter-spacing:.12em;font-weight:400}

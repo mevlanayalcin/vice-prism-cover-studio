@@ -7,19 +7,21 @@
     "size": "1920x1080",
     "grade": "vice-sunset",
     "caption": "VICE HORIZON · A Leonida Story",
-    "note": "Classic 7-panel mosaic: the heiress, neon boulevard with a coupe, the night driver, the sunset run under the title, harbor chase, searchlight helicopter and the getaway at dusk.",
+    "note": "Classic 7-panel cover at export resolution: the boulevard and pier photos painted by the GTA engine (Kuwahara oil paint, XDoG ink, cel planes, sunset relight), the neon boulevard coupe, the sunset skyline under the chrome title, harbor chase, searchlight helicopter and the getaway; 3D box case and every post size beneath.",
     "w": 1280,
     "h": 800,
-    "jpeg_quality": 90
+    "jpeg_quality": 92,
+    "max_bytes": 215000
   },
   {
     "name": "2-studio-editor.jpg",
-    "kind": "studio editor",
-    "query": "?demo=cover&panel=2",
-    "note": "Layout rail (nine layouts), post sizes, gallery with packs, colour grades, lettering fields, sticker and light toggles, ink and paint sliders, panel strip with swap and flip, edit / 3D box / showcase views, PNG and JPG export.",
+    "kind": "studio editor with photos loaded",
+    "query": "?demo=cover&panel=1",
+    "note": "Nine layouts, post sizes, photo dropzone and gallery, the Photo → GTA paint before/after of the selected panel, live preview with the active cut outlined, panel strip with swap, flip, per-panel grade, zoom and rotate, colour grades, lettering fields, stickers, ink and paint sliders, PNG / JPG export.",
     "w": 1280,
     "h": 800,
-    "jpeg_quality": 90
+    "jpeg_quality": 92,
+    "max_bytes": 215000
   },
   {
     "name": "3-cover-neon-night.jpg",
@@ -29,10 +31,11 @@
     "size": "1080x1350",
     "grade": "neon-midnight",
     "caption": "LEONIDA NIGHTS · After Hours on Ocean Drive",
-    "note": "Asymmetric 9-panel cover with every scene relit for night, the boulevard photo painted in, and the live 3D box case beside it.",
+    "note": "Asymmetric 9-panel 4:5 cover relit for night: both photos painted cyan and magenta (one photo in two cuts, one flipped close), every inked scene in its night version, live 3D box case beside it.",
     "w": 1280,
     "h": 800,
-    "jpeg_quality": 91
+    "jpeg_quality": 92,
+    "max_bytes": 215000
   },
   {
     "name": "4-cover-coastal-classic.jpg",
@@ -42,9 +45,10 @@
     "size": "1080x1080",
     "grade": "coastal-day",
     "caption": "MIAMI DRIFT · Turquoise Season",
-    "note": "Panoramic split: harbor chase over the riviera hotel with flamingos and the painted pier photo, with the live 3D box case beside it.",
+    "note": "Panoramic 1:1 split: the harbor chase over both painted photos in the turquoise daylight grade, with the live 3D box case.",
     "w": 1280,
     "h": 800,
-    "jpeg_quality": 91
+    "jpeg_quality": 92,
+    "max_bytes": 215000
   }
 ]
