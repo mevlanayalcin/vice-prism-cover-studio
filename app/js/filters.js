@@ -1,9 +1,12 @@
 // The photo-to-GTA paint engine, plain Canvas 2D pixel work on one panel crop at a time:
-//   1. bilateral denoise, then a variance-weighted Kuwahara oil paint (two brush sizes),
+//   1. bilateral denoise, a variance-weighted Kuwahara oil paint (two brush sizes) and an
+//      unsharp pass that turns the soft brush edges back into crisp painted ones,
 //   2. XDoG cel ink on the painted light: fine contours plus bold silhouettes, speckle-free,
-//   3. soft poster bands and an S-curve for flat comic value planes,
+//      thresholded into pen-crisp lines, with the deepest shadows spotted in flat ink,
+//   3. hard-edged poster bands and an S-curve for flat comic value planes,
 //   4. the grade: blue skies and sea relit with the grade's sunset or night sky by height,
 //      a gradient map, split tone, key light and a rim on the bright side of every contour,
+//      and at night a cyan sign-light fill opposite the magenta key,
 //   5. bloom, deep violet ink, a halftone screen in the shadows and 35 mm grain.
 // Skin is found per pixel and kept warm and natural through steps 3 and 4.
 // `unit` is the short side of the whole cover at this render scale, so brush and line sizes
@@ -98,6 +101,8 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
     kuwahara(data, w, h, r);
     kuwahara(data, w, h, Math.max(1, r - 1));
     bilateral(data, w, h, 3, 11, 2.2);
+    // the brush leaves soft edges: an unsharp pass turns them back into crisp painted ones
+    unsharp(data, w, h, Math.max(1, Math.round(s * 1.5)), 0.9 * paint);
   }
 
   const skin = new Float32Array(n);
@@ -144,6 +149,8 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
   const bloom = grade.bloom ?? 0.28;
   const night = grade.night ? amt : 0;
   const dot = Math.max(3.2, unit * 0.0046);
+  // under neon even skin takes the sign light, so the protection relaxes at night
+  const skinKeep = 1 - night * 0.55;
 
   for (let y = 0, p = 0, i = 0; y < h; y++) {
     const fy = y / h;
@@ -152,14 +159,14 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
       let g = data[i + 1] / 255;
       let b = data[i + 2] / 255;
       const l0 = luma[p];
-      const sk = skin[p];
+      const sk = skin[p] * skinKeep;
 
       // poster bands and the comic S-curve; skin keeps a gentler curve
       const q0 = l0 * levels;
       const k0 = Math.floor(q0);
       const f = q0 - k0;
-      const q = (k0 + smooth(0.3, 0.7, f)) / levels;
-      let t = l0 + (q - l0) * bands * (0.8 - sk * 0.4);
+      const q = (k0 + smooth(0.4 + sk * 0.1, 0.6 - sk * 0.1, f)) / levels;
+      let t = l0 + (q - l0) * bands * (0.95 - sk * 0.45);
       t = clamp01((t - 0.5) * (1.32 - sk * 0.16) + 0.5);
       t = t * t * (3 - 2 * t) * 0.35 + t * 0.65;
       t = Math.pow(t, 1 + (gamma - 1) * (1 - sk * 0.7));
@@ -189,7 +196,7 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
       }
 
       const m = palAt(l);
-      const mix = mapMix * (1 - sk * 0.7) + night * 0.25 * (1 - sk);
+      const mix = mapMix * (1 - sk * 0.7) + night * 0.12 * (1 - sk);
       r += (m[0] - r) * mix;
       g += (m[1] - g) * mix;
       b += (m[2] - b) * mix;
@@ -208,10 +215,12 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
       r += (rc[0] - r) * rim * 0.5 + rc[0] * rim * 0.3;
       g += (rc[1] - g) * rim * 0.5 + rc[1] * rim * 0.3;
       b += (rc[2] - b) * rim * 0.5 + rc[2] * rim * 0.3;
-      const fill = clamp01((0.5 - side) / 0.5) * (1 - l) * rimAmt * 0.55 * (1 - sk * 0.6);
-      r += (cool[0] * l - r) * fill;
-      g += (cool[1] * l - g) * fill;
-      b += (cool[2] * l - b) * fill;
+      // the fill side takes the cool accent; at night it is a full cyan sign-light split
+      const fill = clamp01((0.5 + night * 0.15 - side) / 0.5 + night * 0.2) * (1 - l * (1 - night * 0.7)) * rimAmt * (0.55 + night * 0.5) * (1 - sk * 0.6);
+      const fl = l * (1 + night * 0.5);
+      r += (cool[0] * fl - r) * fill;
+      g += (cool[1] * fl - g) * fill;
+      b += (cool[2] * fl - b) * fill;
 
       if (sk > 0.05) {
         // natural warm skin: pull back toward the painted tone with a little sun in it
@@ -229,9 +238,18 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
       g = (g + gl * 1.3 * (0.4 + warm[1] * 0.4)) * exposure;
       b = (b + gl * 1.3 * (0.3 + warm[2] * 0.5)) * exposure;
 
-      const e = lines[p];
+      // spotted blacks: the deepest shadows fill with flat ink, as a comic inker would
+      const spot = smooth(0.15, 0.05, l) * (1 - sk) * ink * 0.85;
+      if (spot > 0.01) {
+        r += (inkCol[0] - r) * spot;
+        g += (inkCol[1] - g) * spot;
+        b += (inkCol[2] - b) * spot;
+      }
+
+      // ink lines are drawn with a pen, not a blur: the soft XDoG mask is thresholded crisp
+      const e = smooth(0.08, 0.42, lines[p]);
       if (e > 0.02) {
-        const k = e * 0.95;
+        const k = e * 0.97;
         r += (inkCol[0] - r) * k;
         g += (inkCol[1] - g) * k;
         b += (inkCol[2] - b) * k;
@@ -262,6 +280,20 @@ export function paintPanel(imageData, { grade = GRADES[0], fx = FX_DEFAULTS, see
     }
   }
   return imageData;
+}
+
+// Unsharp mask on RGB: adds back `amount` of the difference from a box-blurred copy.
+function unsharp(data, w, h, radius, amount) {
+  if (amount < 0.02) return;
+  const n = w * h;
+  const ch = [0, 1, 2].map((c) => {
+    const m = new Float32Array(n);
+    for (let p = 0; p < n; p++) m[p] = data[p * 4 + c];
+    return blurMask(m, w, h, radius, 2);
+  });
+  for (let p = 0; p < n; p++) {
+    for (let c = 0; c < 3; c++) data[p * 4 + c] += (data[p * 4 + c] - ch[c][p]) * amount;
+  }
 }
 
 // Separable box blur in place, `passes` times (three passes come close to a Gaussian).

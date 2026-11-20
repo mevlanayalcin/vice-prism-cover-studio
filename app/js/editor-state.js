@@ -31,7 +31,7 @@ export const STICKERS = [
   { key: 'age', name: '17+ plate', hint: 'original mature rating plate', on: true },
   { key: 'medallion', name: 'VP seal', hint: 'compact sunset edition seal', on: true },
   { key: 'barcode', name: 'Barcode', hint: 'box-art barcode corner', on: true },
-  { key: 'bevel', name: 'Neon bevel', hint: 'sunset or neon inner edge on every panel', on: true },
+  { key: 'bevel', name: 'Neon bevel', hint: 'sunset or neon inner edge on every panel', on: false },
   { key: 'flare', name: 'Sun flare', hint: 'anamorphic light streak', on: false },
   { key: 'header', name: 'Platform band', hint: 'original edition strip across the top', on: false },
 ];

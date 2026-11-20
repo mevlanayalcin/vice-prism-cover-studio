@@ -3,7 +3,7 @@
 // width (GUTTER of the short side) at every post size, with a matching outer frame. Rows are built
 // from tilted lines [yLeft, yRight] and dividers [xTop, xBottom] so neighbouring cuts share edges.
 
-export const GUTTER = 0.0145;
+export const GUTTER = 0.021;
 const yAt = (line, x) => line[0] + (line[1] - line[0]) * x;
 
 function row(top, bottom, dividers = []) {
@@ -24,10 +24,10 @@ const layout = (id, name, note, cuts, title, badge) => ({
 
 export const LAYOUTS = [
   layout('classic7', 'Classic 7-Panel', 'Three cuts, a full-width title band, three cuts.', [
-    ...row(TOP, [0.46, 0.44], [[0.345, 0.325], [0.675, 0.66]]),
-    ...row([0.46, 0.44], [0.735, 0.715]),
-    ...row([0.735, 0.715], FOOT, [[0.33, 0.35], [0.665, 0.685]]),
-  ], zone(0.06, 0.462, 0.88, 0.262), [0.928, 0.588, 0.13]),
+    ...row(TOP, [0.47, 0.43], [[0.35, 0.31], [0.66, 0.7]]),
+    ...row([0.47, 0.43], [0.745, 0.705]),
+    ...row([0.745, 0.705], FOOT, [[0.31, 0.36], [0.69, 0.645]]),
+  ], zone(0.06, 0.458, 0.88, 0.272), [0.928, 0.585, 0.13]),
   layout('asym7', 'Asymmetric 7', 'Two offset pairs, a tall title band and a two-cut foot.', [
     ...row(TOP, [0.28, 0.26], [[0.6, 0.57]]),
     ...row([0.28, 0.26], [0.53, 0.51], [[0.6, 0.64]]),
@@ -111,7 +111,7 @@ export function buildGeometry(layout, width, height) {
     id: layout.id, width, height, gutter,
     panels: layout.panels.map((panel, index) => {
       const outer = panel.points.map((p) => ({ x: p.x * width, y: p.y * height }));
-      const points = insetPolygon(outer, width, height, gutter / 2, gutter * 0.9);
+      const points = insetPolygon(outer, width, height, gutter / 2, gutter * 1.15);
       const box = boundsOf(points);
       return { index, outer, points, box, cx: box.x + box.w / 2, cy: box.y + box.h / 2 };
     }),

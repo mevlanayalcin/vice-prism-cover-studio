@@ -7,17 +7,17 @@
     "size": "1920x1080",
     "grade": "vice-sunset",
     "caption": "VICE HORIZON · A Leonida Story",
-    "note": "The app's own Canvas PNG exporter at 1920 × 1080, shown full-bleed with zero UI bars: seven photo panels painted live by the Kuwahara oil-paint, XDoG cel-ink and gradient-map engine, framed on each subject under the chrome VICE HORIZON lettering, platform band, seal and 17+ plate. Delivered here Lanczos-downscaled to 1280 × 720 (16:9).",
+    "note": "The app's own Canvas PNG exporter at 1920 × 1080, shown full-bleed with zero UI bars: seven photo panels on steeper diagonal cuts with thick jet-black gutters, painted live by the Kuwahara oil-paint, unsharp, pen-crisp XDoG ink, spotted-black and gradient-map engine, framed on each subject under the chrome VICE HORIZON lettering, seal and 17+ plate. Delivered here Lanczos-downscaled to 1280 × 720 (16:9).",
     "w": 1280,
     "h": 720,
-    "jpeg_quality": 86,
+    "jpeg_quality": 84,
     "max_bytes": 235000
   },
   {
     "name": "2-studio-editor.jpg",
     "kind": "studio editor with the painted cover loaded",
     "query": "?demo=cover&panel=1",
-    "note": "The live studio at 1280 × 800: nine layouts, three post sizes, the eight-photo gallery and dropzone, the Photo → GTA paint Before/After split of the selected panel, the live painted preview with the active cut outlined, the seven-panel strip with swap, flip, per-panel grade, zoom and rotate, six colour grades, caption and type-finish fields, box-art marks, the Kuwahara / XDoG ink / halftone / grain / grade sliders, and PNG / JPG export at every size.",
+    "note": "The live studio at 1280 × 800: nine layouts, three post sizes, the eight-photo gallery and dropzone, the Photo → GTA paint Before/After split of the selected panel, the live painted preview (thick black gutters, neon bevel off by default) with the active cut outlined, the seven-panel strip with swap, flip, per-panel grade, zoom and rotate, six colour grades, caption and type-finish fields, box-art marks, the Kuwahara / XDoG ink / halftone / grain / grade sliders, and PNG / JPG export at every size.",
     "w": 1280,
     "h": 800,
     "jpeg_quality": 84,
@@ -31,10 +31,10 @@
     "size": "1080x1350",
     "grade": "neon-midnight",
     "caption": "LEONIDA NIGHTS · After Hours on Ocean Drive",
-    "note": "The Neon Midnight cover exported by the app's Canvas PNG path at 1080 × 1350 and shown full-bleed with zero UI bars: seven asymmetric cuts of the eight candid sample photos relit cyan and magenta by the gradient-map grade, ink contours and cel planes drawn live under the neon VICE lettering. Delivered here Lanczos-downscaled to 1024 × 1280 (4:5).",
+    "note": "The Neon Midnight cover exported by the app's Canvas PNG path at 1080 × 1350 and shown full-bleed with zero UI bars: seven asymmetric cuts of the candid sample photos split-lit by a magenta key and a cyan sign-light fill, ink contours, spotted blacks and cel planes drawn live under the neon lettering. Delivered here Lanczos-downscaled to 1024 × 1280 (4:5).",
     "w": 1024,
     "h": 1280,
-    "jpeg_quality": 78,
+    "jpeg_quality": 77,
     "max_bytes": 235000
   },
   {
@@ -48,7 +48,7 @@
     "note": "The turquoise Miami Drift cover exported by the app itself at 1080 × 1080 and shown full-bleed with zero UI bars: the diagonal five-panel cut of painted harbor, boulevard and pier photos, gradient-mapped into clean coastal daylight with XDoG ink and flat cel value planes. Delivered here at 1080 × 1080 (1:1).",
     "w": 1080,
     "h": 1080,
-    "jpeg_quality": 84,
+    "jpeg_quality": 82,
     "max_bytes": 235000
   }
 ]
