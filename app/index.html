@@ -35,7 +35,7 @@
 <div class="block-head"><h2><b>01</b> Photos</h2><button id="mix-btn" class="text-btn" type="button" title="Shuffle the photos across the panels">Shuffle</button></div>
 <label id="dropzone" class="dropzone" for="file">
 <span class="drop-icon" aria-hidden="true">＋</span>
-<span><strong>Add your photos</strong><em>Drop or browse · JPG, PNG, WEBP · several at once</em></span>
+<span><strong>Add your photos</strong><em>Drop or browse · JPG, PNG, WEBP</em></span>
 <input id="file" type="file" accept="image/png,image/jpeg,image/webp,image/*" multiple hidden>
 </label>
 <div id="mode-row" class="mode-row" role="group" aria-label="Photo mode">
@@ -58,7 +58,7 @@
 <section class="stage-col">
 <div class="stage-bar">
 <div class="stage-live"><i></i><strong>Live poster</strong><span id="stage-size">1920 × 1080 px</span></div>
-<div class="stage-right"><span class="stage-spec" id="stage-spec">7 PANELS</span><div id="size-grid" class="size-grid" role="group" aria-label="Post size"></div><span id="size-note" hidden>16:9</span><button id="before-btn" class="chip-btn" type="button" title="Split the canvas: raw photos left, painted cover right (B)"><i class="half" aria-hidden="true"></i>Before / After</button></div>
+<div class="stage-right"><span class="stage-spec" id="stage-spec">7 PANELS</span><div id="size-grid" class="size-grid" role="group" aria-label="Post size"></div><span id="size-note" hidden>16:9</span><button id="before-btn" class="chip-btn" type="button" title="Split the canvas: raw photos left, painted cover right (B, or double-click the poster)"><i class="half" aria-hidden="true"></i>Before / After</button></div>
 </div>
 <div id="stage" class="stage">
 <div id="poster-wrap" class="poster-wrap">
@@ -128,7 +128,7 @@
 </aside>
 </main>
 
-<footer class="statusbar"><i aria-hidden="true"></i><span id="status" role="status">All processing local — your photos never leave this machine.</span><span class="keys" aria-hidden="true">1–9 panels · arrows nudge · B before/after · Ctrl Z undo · Ctrl E export</span></footer>
+<footer class="statusbar"><i aria-hidden="true"></i><span id="status" role="status">All processing local — your photos never leave this machine.</span><span class="keys" aria-hidden="true">1–9 panels · arrows nudge · B or double-click before/after · Ctrl Z undo · Ctrl E export</span></footer>
 
 <div id="export-toast" class="toast" role="status" aria-live="polite" hidden>
 <span class="toast-check" aria-hidden="true">✓</span>

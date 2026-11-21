@@ -3,7 +3,7 @@
 //
 // The app is this repository's app/ folder: plain static files, no build step, no network
 // request. It paints eight original candid sample photos — and the user's own — into GTA-style
-// cover art on a Canvas 2D engine (bilateral denoise, eight-region Kuwahara oil paint, despeckled
+// cover art on a Canvas 2D engine (8-sector anisotropic Kuwahara oil paint, multi-scale despeckled
 // XDoG comic ink, clarity, poster value planes with a filmic shoulder, gradient-map grade with sky
 // relight, dual-tone rim light, halftone, paper grain), cuts them into nine panel layouts (multi-
 // photo, or one photo auto-sliced into hero, close-up and detail cuts), letters the cover with a
@@ -12,7 +12,7 @@
 //
 // The four screenshots are the app's own output: three true full-bleed covers straight from its
 // Canvas PNG exporter (?shot=export) at 16:9, 4:5 and 1:1, plus the live studio editor at
-// 1440 x 900 with its Before / After split. No UI bars sit over a cover shot.
+// 1280 x 800 with its Before / After split. No UI bars sit over a cover shot.
 //
 // This program is only the hand-in. It stages app/ and screenshots/ into the output directory,
 // writes dossier.json with the kit's buildDossier, and prints the gate-facing totals. Node
@@ -29,7 +29,7 @@ import { buildDossier } from './vendor/makefun-app.ts';
 const ENTRY = {
   competition: 'gta6-cover-art-01',
   app: 'Vice Prism Cover Studio',
-  version: '7.0.0',
+  version: '9.0.0',
   runtime: 'Canvas 2D, ES modules, zero dependencies',
 } as const;
 

@@ -343,7 +343,7 @@ function syncAll() {
   const text = {
     'layout-name': layout.name, 'grade-name': grade.name, 'size-note': `${size.ratio} · ${size.label}`, 'stage-size': `${dims} px`,
     'stage-spec': `${layout.panels.length} painted panels · ${grade.name}`, 'export-label': `Export ${fmtName()} · ${size.ratio}`,
-    'export-dim': `${dims} px · straight from the canvas`, 'quick-export': `↓ Export ${fmtName()}`, 'font-note': FONT_STYLE_OPTIONS.find((o) => o.id === state.fontStyle)?.label,
+    'export-dim': `${dims} px · exact canvas size`, 'quick-export': `↓ Export ${fmtName()}`, 'font-note': FONT_STYLE_OPTIONS.find((o) => o.id === state.fontStyle)?.label,
   };
   for (const [id, value] of Object.entries(text)) $(id).textContent = value;
   for (const [id, key] of Object.entries(CAPTION_FIELDS)) if (document.activeElement !== $(id)) $(id).value = state.caption[key] ?? '';
@@ -481,6 +481,13 @@ function bindCanvas() {
     schedule('draft');
     later('wheel', 220, () => refresh(`Panel ${state.activePanel + 1} zoom ${cfg.zoom.toFixed(2)}×.`));
   }, { passive: false });
+  // Double-click the poster to open the Before / After split right where you clicked, or to
+  // close it again. A double-click on the title is left alone so title edits stay one gesture.
+  overlay.addEventListener('dblclick', (event) => {
+    if (onTitle(event)) return;
+    event.preventDefault();
+    toggleBefore(before == null, coverPoint(event).x / overlay.width);
+  });
 }
 
 // Selected-panel crop controls: shot, grade, zoom, rotate, flip, reset and the swap arming.
@@ -514,8 +521,8 @@ function bindPanelControls() {
 }
 
 // The live Before / After split on the main canvas: raw framed photos left of the divider.
-function toggleBefore(on = before == null) {
-  before = on ? 0.5 : null;
+function toggleBefore(on = before == null, at = 0.5) {
+  before = on ? clamp01(at) : null;
   syncAll();
   draw('preview');
   setStatus(on ? 'Before / After: drag the divider on the canvas to compare the raw photos with the paint.' : 'Before / After off.');
