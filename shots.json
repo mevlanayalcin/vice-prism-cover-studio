@@ -7,7 +7,7 @@
     "size": "1920x1080",
     "grade": "vice-sunset",
     "caption": "VICE HORIZON · A Leonida Story",
-    "note": "The app's own Canvas PNG exporter at 1920 × 1080, shown full-bleed with zero UI bars: the Classic Vice Grid with its diagonal helicopter corner, boulevard and rooftop portraits, Ocean Drive title band, sunset coupe, speedboat and pier on jet-black diagonal gutters, painted by the v9 engine (8-sector anisotropic Kuwahara oil paint, multi-scale XDoG comic ink, smooth cel bands, sunset sky relight, rim light, halftone and paper grain) under the Horizon Chrome VICE HORIZON lockup with its lens sparkle, the italic subtitle ribbon, the scalloped SOLARIS EDITION seal, the 17+ plate and the barcode. Lanczos-downscaled to 1280 × 720 (16:9).",
+    "note": "The app's own Canvas PNG exporter at 1920 × 1080, shown full-bleed with zero UI bars: the Classic Vice Grid with its diagonal helicopter corner, boulevard and rooftop portraits, Ocean Drive title band, sunset coupe, speedboat and pier on jet-black diagonal gutters, painted by the v10 engine (guided-filter flattening, multi-scale smooth Kuwahara oil paint, a flow brush, chroma clean-up, edge-gated XDoG comic ink, soft cel bands, sunset sky relight, coral and gold rim light, halftone and paper grain) under the Horizon Chrome VICE HORIZON lockup with its lens sparkle, the italic subtitle ribbon, the scalloped SOLARIS EDITION seal, the 17+ plate and the barcode. Lanczos-downscaled to 1280 × 720 (16:9).",
     "w": 1280,
     "h": 720,
     "jpeg_quality": 84,
@@ -16,12 +16,12 @@
   {
     "name": "2-studio-editor.jpg",
     "kind": "studio editor with the painted cover and the live Before / After split",
-    "query": "?demo=cover&panel=1&before=0.34",
-    "note": "The live studio at 1280 × 800, where every control fits with no wrapping, clipping or scroll: the photo dropzone with Multi-photo / 1-Photo Auto-Slice, the eight-photo gallery and quick covers, nine layouts, box-art marks, the live poster with the Before / After divider at a third (the raw helicopter photo on the left, GTA paint on the right, a glowing hairline and BEFORE / AFTER pills), the 1:1 / 4:5 / 16:9 post-size switch, the panel strip with shot, swap, flip, per-panel look, zoom and rotate, six looks, the caption fields with title size and tilt, the ink-and-paint sliders, and one-click PNG export at 1080 × 1080, 1080 × 1350 and 1920 × 1080. Captured in headless Chromium at deviceScaleFactor 1, no resize.",
+    "query": "?demo=cover&panel=1&before=0.25",
+    "note": "The live studio at 1280 × 800, where every control fits with no scroll and no ellipsis: the photo dropzone with Multi-photo / 1-Photo Auto-Slice, the eight-photo gallery and quick covers, all nine layout names in full, box-art marks, the live poster with the Before / After divider at a quarter (raw helicopter, Ocean Drive and coupe photos on the left, GTA paint on the right, a glowing hairline with a <> grip and BEFORE / AFTER pills, clear of the VICE HORIZON title), the 1:1 / 4:5 / 16:9 post-size switch, the panel strip with shot, swap, flip, per-panel look, zoom and rotate, six looks, the caption fields with title size and tilt, the ink-and-paint sliders, and one-click PNG export at 1080 × 1080, 1080 × 1350 and 1920 × 1080. Captured in headless Chromium at deviceScaleFactor 1, no resize.",
     "w": 1280,
     "h": 800,
-    "jpeg_quality": 85,
-    "max_bytes": 245000
+    "jpeg_quality": 79,
+    "max_bytes": 240000
   },
   {
     "name": "3-cover-neon-night.jpg",
@@ -31,10 +31,10 @@
     "size": "1080x1350",
     "grade": "neon-midnight",
     "caption": "LEONIDA NIGHTS · After Hours on Ocean Drive",
-    "note": "The Leonida Neon cover exported by the app's Canvas PNG path at 1080 × 1350 and shown full-bleed with zero UI bars: the Portrait Box Art layout's seven cuts in a magenta and cyan night grade over navy, under the Neon Tube LEONIDA NIGHTS title (double bloom, a white core tube, a dark glass backplate), a glowing glass subtitle ribbon and the MIDNIGHT CUT seal. Lanczos-downscaled to 1024 × 1280 (4:5).",
+    "note": "The Leonida Neon cover exported by the app's Canvas PNG path at 1080 × 1350 and shown full-bleed with zero UI bars: the Portrait Box Art layout's seven cuts in a day-for-night magenta and cyan grade over navy, with clean, speckle-free faces and a directional cyan and magenta rim light, under the Neon Tube LEONIDA NIGHTS title (double bloom, a white core tube, a dark glass backplate), a glowing glass subtitle ribbon and the MIDNIGHT CUT seal. Lanczos-downscaled to 1024 × 1280 (4:5).",
     "w": 1024,
     "h": 1280,
-    "jpeg_quality": 73,
+    "jpeg_quality": 83,
     "max_bytes": 235000
   },
   {
@@ -45,10 +45,10 @@
     "size": "1080x1080",
     "grade": "coastal-day",
     "caption": "MIAMI DRIFT · Golden Hour Run",
-    "note": "The Coastal Classic cover exported by the app itself at 1080 × 1080 and shown full-bleed with zero UI bars: the golden-hour coupe as the hero under the Sunset Enamel MIAMI DRIFT lockup (gold-to-coral enamel with retro stripes over a navy extruded block), then speedboat, helicopter, boulevard and pier cuts on crossing diagonals, framed in jet-black gutters with the crisp white collector's keyline and the COLLECTOR'S CUT seal. Delivered at 1080 × 1080 (1:1).",
+    "note": "The Coastal Classic cover exported by the app itself at 1080 × 1080 and shown full-bleed with zero UI bars: the whole golden-hour coupe as the hero under the Sunset Enamel MIAMI DRIFT lockup (gold-to-coral enamel with retro stripes over a navy extruded block), with the COLLECTOR'S CUT seal in the top-right sky corner, then speedboat, helicopter, boulevard and pier cuts on crossing diagonals, framed in jet-black gutters with the crisp white collector's keyline. Delivered at 1080 × 1080 (1:1).",
     "w": 1080,
     "h": 1080,
-    "jpeg_quality": 81,
+    "jpeg_quality": 79,
     "max_bytes": 235000
   }
 ]

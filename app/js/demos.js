@@ -13,7 +13,11 @@ export const DEMOS = {
   neon: demo('portrait', 'asym7', 'neon-midnight', 'neon', ['LEONIDA NIGHTS', 'After Hours on Ocean Drive', 'Ocean Drive · 2:14 AM', 'MIDNIGHT CUT'],
     ['heli', 'rooftop', 'neon-street', 'boulevard', 'ocean-drive', 'coupe', 'speedboat']),
   coast: demo('square', 'diagonal5', 'coastal-day', 'sunset', ['MIAMI DRIFT', 'Golden Hour Run', 'Palm Coast · Causeway', "COLLECTOR'S CUT"],
-    ['coupe', 'speedboat', 'heli', 'boulevard', 'pier'], { stickers: { keyline: true } }),
+    ['coupe', 'speedboat', 'heli', 'boulevard', 'pier'], {
+      stickers: { keyline: true },
+      // the whole coupe with air round both bumpers: the widest crop, centred a touch left of the car
+      panels: { 0: { manualFocus: true, zoom: 1, focusX: 0.49, focusY: 0.6 } },
+    }),
   heat: demo('landscape', 'hero-split', 'midnight-heat', 'heavy', ['MIDNIGHT HEAT', 'The Causeway Job', 'Vice Prism presents', 'COASTAL SERIES'],
     ['neon-street', 'heli', 'coupe', 'speedboat']),
 };

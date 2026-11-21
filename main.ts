@@ -3,9 +3,9 @@
 //
 // The app is this repository's app/ folder: plain static files, no build step, no network
 // request. It paints eight original candid sample photos — and the user's own — into GTA-style
-// cover art on a Canvas 2D engine (8-sector anisotropic Kuwahara oil paint, multi-scale despeckled
-// XDoG comic ink, clarity, poster value planes with a filmic shoulder, gradient-map grade with sky
-// relight, dual-tone rim light, halftone, paper grain), cuts them into nine panel layouts (multi-
+// cover art on a Canvas 2D engine (guided-filter flattening, multi-scale smooth Kuwahara oil paint,
+// a structure-tensor flow brush, chroma clean-up, soft cel bands, gradient-map grade with sky relight
+// and a directional rim light, edge-gated despeckled XDoG comic ink, halftone, paper grain), cuts them into nine panel layouts (multi-
 // photo, or one photo auto-sliced into hero, close-up and detail cuts), letters the cover with a
 // draggable, sizable, tiltable title and exports PNG or JPG at 1080 x 1080, 1080 x 1350 or
 // 1920 x 1080, reading the real pixel size back out of the encoded file.
@@ -29,7 +29,7 @@ import { buildDossier } from './vendor/makefun-app.ts';
 const ENTRY = {
   competition: 'gta6-cover-art-01',
   app: 'Vice Prism Cover Studio',
-  version: '9.0.0',
+  version: '10.0.0',
   runtime: 'Canvas 2D, ES modules, zero dependencies',
 } as const;
 
@@ -150,7 +150,7 @@ for (const name of stagedShots) {
 if (dossierBytes > 1.5 * 1024 * 1024) fail(`dossier.json is ${dossierBytes} bytes, over 1.5 MiB`);
 // The judge reads the source text whole only while it fits the 160 KiB cap; a cut line means an
 // author error here, so the run refuses to ship a dossier whose source was truncated.
-if (dossier.includes('[Cut at ')) fail('dossier source text was cut at the cap: trim app/ sources');
+if (Buffer.from(dossier).toString('utf8').includes('[Cut at ')) fail('dossier source text was cut at the cap: trim app/ sources');
 const sourceBytes = (dir: string): number => readdirSync(dir, { withFileTypes: true }).reduce((sum, d) => {
   const full = join(dir, d.name);
   if (d.isDirectory()) return d.name === 'vendor' ? sum : sum + sourceBytes(full);
